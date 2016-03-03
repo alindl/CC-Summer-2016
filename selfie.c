@@ -6280,10 +6280,6 @@ void boot(int argc, int *argv) {
 // -----------------------------------------------------------------
 
 int selfie(int argc, int* argv) {
-    
-    //assignment00
-    print("This is BernAnAn CzuLiPe Selfie\n");
-    //assignment00
     if (argc < 2)
         return -1;
     else {
@@ -6425,6 +6421,11 @@ int main(int argc, int *argv) {
 
     argc = argc - 1;
     argv = argv + 1;
+    
+    //assignment00
+    print((int*)"This is BernAnAn CzuLiPe Selfie");
+    println();
+    //assignment00
        
     if (selfie(argc, (int*) argv) != 0) {
         print(selfieName);
