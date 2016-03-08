@@ -6422,6 +6422,11 @@ int main(int argc, int *argv) {
     argc = argc - 1;
     argv = argv + 1;
 
+    //assignment00
+    print((int*)"This is BernAnAn CzuLiPe Selfie");
+    println();
+    //assignment00
+
     if (selfie(argc, (int*) argv) != 0) {
         print(selfieName);
         print((int*) ": usage: selfie { -c source | -o binary | -s assembly | -l binary } [ -m size ... | -d size ... | -y size ... ] ");
