@@ -1185,6 +1185,30 @@ int rightShift(int n, int b) {
             (INT_MAX / twoToThePowerOf(b) + 1);
 }
 
+int sllv(int n, int b){ // Shift left logical
+    if (b > 30)
+        return 0;
+    
+}
+
+int srlv(int n, int b){ // Shift right logical
+    if (b > 30)
+        return 0;
+    
+}
+
+int sll(int n, int b){ // Shift left logical immediate
+    if (b > 30)
+        return 0;
+    
+}
+
+int srl(int n, int b){ // Shift right logical immediate
+    if (b > 30)
+        return 0;
+    
+}
+
 int loadCharacter(int *s, int i) {
     // assert: i >= 0
     int a;
