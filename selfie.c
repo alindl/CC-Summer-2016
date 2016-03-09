@@ -585,6 +585,7 @@ void initRegister() {
 // -----------------------------------------------------------------
 
 int encodeRFormat(int opcode, int rs, int rt, int rd, int function);
+int encodeRSFormat(int opcode, int rs, int rt, int rd, int sa, int function);
 int encodeIFormat(int opcode, int rs, int rt, int immediate);
 int encodeJFormat(int opcode, int instr_index);
 
@@ -592,6 +593,7 @@ int getOpcode(int instruction);
 int getRS(int instruction);
 int getRT(int instruction);
 int getRD(int instruction);
+int getSA(int instruction);
 int getFunction(int instruction);
 int getImmediate(int instruction);
 int getInstrIndex(int instruction);
@@ -625,6 +627,10 @@ int OP_SW      = 43;
 int *OPCODES; // array of strings representing MIPS opcodes
 
 int FCT_NOP     = 0;
+int FCT_SLL     = 0;
+int FCT_SLLV    = 2;
+int FCT_SRL     = 4;
+int FCT_SRLV    = 6;
 int FCT_JR      = 8;
 int FCT_SYSCALL = 12;
 int FCT_MFHI    = 16;
@@ -643,6 +649,7 @@ int opcode      = 0;
 int rs          = 0;
 int rt          = 0;
 int rd          = 0;
+int sa          = 0;
 int immediate   = 0;
 int function    = 0;
 int instr_index = 0;
@@ -664,6 +671,10 @@ void initDecoder() {
     FUNCTIONS = malloc(43 * SIZEOFINTSTAR);
 
     *(FUNCTIONS + FCT_NOP)     = (int) "nop";
+    *(FUNCTIONS + FCT_SLL)     = (int) "sll";
+    *(FUNCTIONS + FCT_SLLV)    = (int) "sllv";
+    *(FUNCTIONS + FCT_SRL)     = (int) "srl";
+    *(FUNCTIONS + FCT_SRLV)    = (int) "srlv";
     *(FUNCTIONS + FCT_JR)      = (int) "jr";
     *(FUNCTIONS + FCT_SYSCALL) = (int) "syscall";
     *(FUNCTIONS + FCT_MFHI)    = (int) "mfhi";
@@ -875,6 +886,10 @@ void initMemory(int bytes) {
 
 void fct_syscall();
 void fct_nop();
+void fct_sll();
+void fct_sllv();
+void fct_srl();
+void fct_srlv();
 void op_jal();
 void op_j();
 void op_beq();
@@ -1183,30 +1198,6 @@ int rightShift(int n, int b) {
         // shift right n with msb reset and then restore msb
         return ((n + 1) + INT_MAX) / twoToThePowerOf(b) +
             (INT_MAX / twoToThePowerOf(b) + 1);
-}
-
-int sllv(int n, int b){ // Shift left logical
-    if (b > 30)
-        return 0;
-    
-}
-
-int srlv(int n, int b){ // Shift right logical
-    if (b > 30)
-        return 0;
-    
-}
-
-int sll(int n, int b){ // Shift left logical immediate
-    if (b > 30)
-        return 0;
-    
-}
-
-int srl(int n, int b){ // Shift right logical immediate
-    if (b > 30)
-        return 0;
-    
 }
 
 int loadCharacter(int *s, int i) {
@@ -3701,6 +3692,23 @@ int encodeRFormat(int opcode, int rs, int rt, int rd, int function) {
     return leftShift(leftShift(leftShift(leftShift(opcode, 5) + rs, 5) + rt, 5) + rd, 11) + function;
 }
 
+// 32 bit
+//
+// +------+-----+-----+-----+-----+------+
+// |opcode|  rs |  rt |  rd |  sa |fction|
+// +------+-----+-----+-----+-----+------+
+//    6      5     5     5     5     6
+
+int encodeRSFormat(int opcode, int rs, int rt, int rd, int sa, int function) {
+    // assert: 0 <= opcode < 2^6
+    // assert: 0 <= rs < 2^5
+    // assert: 0 <= rt < 2^5
+    // assert: 0 <= rd < 2^5
+    // assert: 0 <= sa < 2^5
+    // assert: 0 <= function < 2^6
+    return leftShift(leftShift(leftShift(leftShift(opcode, 5) + rs, 5) + rt, 5) + rd, 5) + sa, 6) + function;
+}
+
 // -----------------------------------------------------------------
 // 32 bit
 //
@@ -3747,6 +3755,10 @@ int getRT(int instruction) {
 
 int getRD(int instruction) {
     return rightShift(leftShift(instruction, 16), 27);
+}
+
+int getSA(int instruction) {
+    return rightShift(leftShift(instruction, 21), 27);
 }
 
 int getFunction(int instruction) {
@@ -3798,13 +3810,14 @@ void decode() {
 // 32 bit
 //
 // +------+-----+-----+-----+-----+------+
-// |opcode|  rs |  rt |  rd |00000|fction|
+// |opcode|  rs |  rt |  rd |  sa |fction|
 // +------+-----+-----+-----+-----+------+
 //    6      5     5     5     5     6
 void decodeRFormat() {
     rs          = getRS(ir);
     rt          = getRT(ir);
     rd          = getRD(ir);
+    sa          = getSA(ir);
     immediate   = 0;
     function    = getFunction(ir);
     instr_index = 0;
@@ -3888,6 +3901,11 @@ void emitRFormat(int opcode, int rs, int rt, int rd, int function) {
             emitRFormat(OP_SPECIAL, 0, 0, 0, FCT_NOP); // pipeline delay
         }
     }
+}
+
+void emitRSFormat(int opcode, int rs, int rt, int rd, int sa, int function) {
+    emitInstruction(encodeRSFormat(opcode, rs, rt, rd, sa, function));
+
 }
 
 void emitIFormat(int opcode, int rs, int rt, int immediate) {
@@ -5010,15 +5028,200 @@ void fct_syscall() {
     }
 }
 
-void fct_nop() {
+//void fct_nop() {
+//    if (debug) {
+//        printFunction(function);
+//        println();
+//    }
+//
+//    if (interpret)
+//        pc = pc + WORDSIZE;
+//}
+
+void fct_sll() { // Shift left logical immediate
+    if (sa != 0){ //SLL
+        if (debug) {
+            printFunction(function);
+            print((int*) " ");
+            printRegister(rd);
+            print((int*) ",");
+            printRegister(rs);
+            print((int*) ",");
+            printRegister(rt);
+            print((int*) ",");
+            print(itoa(signExtend(sa), string_buffer, 10, 0, 0));
+            if (interpret) {
+                print((int*) ": ");
+                printRegister(rd);
+                print((int*) "=");
+                print(itoa(*(registers+rd), string_buffer, 10, 0, 0));
+                print((int*) ",");
+                printRegister(rs);
+                print((int*) "=");
+                print(itoa(*(registers+rs), string_buffer, 10, 0, 0));
+                print((int*) ",");
+                printRegister(rt);
+                print((int*) "=");
+                print(itoa(*(registers+rt), string_buffer, 10, 0, 0));
+            }
+        }
+    
+
+        if (interpret) {
+            *(registers+rd) = leftShift(*(registers+rs), sa);
+
+            pc = pc + WORDSIZE;
+        }
+
+        if (debug) {
+            if (interpret) {
+                print((int*) " -> ");
+                printRegister(rd);
+                print((int*) "=");
+                print(itoa(*(registers+rd), string_buffer, 10, 0, 0));
+            }
+            println();
+        }
+    }
+    else { //NOP
+        if (debug) {
+            printFunction(function);
+            println();
+        }
+
+        if (interpret)
+            pc = pc + WORDSIZE;
+    }
+}
+
+void fct_sllv() { // Shift left logical
     if (debug) {
         printFunction(function);
-        println();
+        print((int*) " ");
+        printRegister(rd);
+        print((int*) ",");
+        printRegister(rs);
+        print((int*) ",");
+        printRegister(rt);
+        if (interpret) {
+            print((int*) ": ");
+            printRegister(rd);
+            print((int*) "=");
+            print(itoa(*(registers+rd), string_buffer, 10, 0, 0));
+            print((int*) ",");
+            printRegister(rs);
+            print((int*) "=");
+            print(itoa(*(registers+rs), string_buffer, 10, 0, 0));
+            print((int*) ",");
+            printRegister(rt);
+            print((int*) "=");
+            print(itoa(*(registers+rt), string_buffer, 10, 0, 0));
+        }
     }
 
-    if (interpret)
+    if (interpret) {
+        *(registers+rd) = leftShift(*(registers+rs), *(registers+rt));
+
         pc = pc + WORDSIZE;
+    }
+
+    if (debug) {
+        if (interpret) {
+            print((int*) " -> ");
+            printRegister(rd);
+            print((int*) "=");
+            print(itoa(*(registers+rd), string_buffer, 10, 0, 0));
+        }
+        println();
+    }
 }
+
+void fct_srl() { // Shift right logical immediate
+    if (debug) {
+        printFunction(function);
+        print((int*) " ");
+        printRegister(rd);
+        print((int*) ",");
+        printRegister(rs);
+        print((int*) ",");
+        printRegister(rt);
+        print((int*) ",");
+        print(itoa(signExtend(sa), string_buffer, 10, 0, 0));
+        if (interpret) {
+            print((int*) ": ");
+            printRegister(rd);
+            print((int*) "=");
+            print(itoa(*(registers+rd), string_buffer, 10, 0, 0));
+            print((int*) ",");
+            printRegister(rs);
+            print((int*) "=");
+            print(itoa(*(registers+rs), string_buffer, 10, 0, 0));
+            print((int*) ",");
+            printRegister(rt);
+            print((int*) "=");
+            print(itoa(*(registers+rt), string_buffer, 10, 0, 0));
+        }
+    }
+
+    if (interpret) {
+        *(registers+rd) = rightShift(*(registers+rs),  sa);
+
+        pc = pc + WORDSIZE;
+    }
+
+    if (debug) {
+        if (interpret) {
+            print((int*) " -> ");
+            printRegister(rd);
+            print((int*) "=");
+            print(itoa(*(registers+rd), string_buffer, 10, 0, 0));
+        }
+        println();
+    }
+}
+
+void fct_srlv() { // Shift right logical 
+    if (debug) {
+        printFunction(function);
+        print((int*) " ");
+        printRegister(rd);
+        print((int*) ",");
+        printRegister(rs);
+        print((int*) ",");
+        printRegister(rt);
+        if (interpret) {
+            print((int*) ": ");
+            printRegister(rd);
+            print((int*) "=");
+            print(itoa(*(registers+rd), string_buffer, 10, 0, 0));
+            print((int*) ",");
+            printRegister(rs);
+            print((int*) "=");
+            print(itoa(*(registers+rs), string_buffer, 10, 0, 0));
+            print((int*) ",");
+            printRegister(rt);
+            print((int*) "=");
+            print(itoa(*(registers+rt), string_buffer, 10, 0, 0));
+        }
+    }
+
+    if (interpret) {
+        *(registers+rd) = rightShift(*(registers+rs), *(registers+rt));
+
+        pc = pc + WORDSIZE;
+    }
+
+    if (debug) {
+        if (interpret) {
+            print((int*) " -> ");
+            printRegister(rd);
+            print((int*) "=");
+            print(itoa(*(registers+rd), string_buffer, 10, 0, 0));
+        }
+        println();
+    }
+}
+
 
 void op_jal() {
     if (debug) {
@@ -5717,9 +5920,17 @@ void execute() {
 
     if (opcode == OP_SPECIAL) {
         if (function == FCT_NOP)
-            fct_nop();
+            fct_sll();
         else if (function == FCT_ADDU)
             fct_addu();
+        else if (function == FCT_SLL)
+            fct_sll();
+        else if (function == FCT_SLLV)
+            fct_sllv();
+        else if (function == FCT_SRL)
+            fct_srl();
+        else if (function == FCT_SRLV)
+            fct_srlv();
         else if (function == FCT_SUBU)
             fct_subu();
         else if (function == FCT_MULTU)
