@@ -697,6 +697,7 @@ void storeInstruction(int baddr, int instruction);
 
 void emitInstruction(int instruction);
 void emitRFormat(int opcode, int rs, int rt, int rd, int function);
+void emitRSFormat(int opcode, int rs, int rt, int rd, int sa, int function);
 void emitIFormat(int opcode, int rs, int rt, int immediate);
 void emitJFormat(int opcode, int instr_index);
 
@@ -885,7 +886,7 @@ void initMemory(int bytes) {
 // -----------------------------------------------------------------
 
 void fct_syscall();
-void fct_nop();
+//void fct_nop();
 void fct_sll();
 void fct_sllv();
 void fct_srl();
@@ -3706,7 +3707,7 @@ int encodeRSFormat(int opcode, int rs, int rt, int rd, int sa, int function) {
     // assert: 0 <= rd < 2^5
     // assert: 0 <= sa < 2^5
     // assert: 0 <= function < 2^6
-    return leftShift(leftShift(leftShift(leftShift(opcode, 5) + rs, 5) + rt, 5) + rd, 5) + sa, 6) + function;
+    return leftShift(leftShift(leftShift(leftShift(leftShift(opcode, 5) + rs, 5) + rt, 5) + rd, 5) + sa, 6) + function;
 }
 
 // -----------------------------------------------------------------
@@ -3905,7 +3906,6 @@ void emitRFormat(int opcode, int rs, int rt, int rd, int function) {
 
 void emitRSFormat(int opcode, int rs, int rt, int rd, int sa, int function) {
     emitInstruction(encodeRSFormat(opcode, rs, rt, rd, sa, function));
-
 }
 
 void emitIFormat(int opcode, int rs, int rt, int immediate) {
