@@ -6677,10 +6677,5 @@ int main(int argc, int *argv) {
         print((int*) ": usage: selfie { -c source | -o binary | -s assembly | -l binary } [ -m size ... | -d size ... | -y size ... ] ");
         println();
     }
-<<<<<<< HEAD
-}
-=======
-
     return 0;
 }
->>>>>>> upstream/selfie-master
