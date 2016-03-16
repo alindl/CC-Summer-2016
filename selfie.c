@@ -585,7 +585,7 @@ void initRegister() {
 // -----------------------------------------------------------------
 
 int encodeRFormat(int opcode, int rs, int rt, int rd, int function);
-int encodeRSFormat(int opcode, int rs, int rt, int rd, int sa, int function);
+//int encodeRSFormat(int opcode, int rs, int rt, int rd, int shamt, int function);
 int encodeIFormat(int opcode, int rs, int rt, int immediate);
 int encodeJFormat(int opcode, int instr_index);
 
@@ -593,7 +593,7 @@ int getOpcode(int instruction);
 int getRS(int instruction);
 int getRT(int instruction);
 int getRD(int instruction);
-int getSA(int instruction);
+int getShamt(int instruction);
 int getFunction(int instruction);
 int getImmediate(int instruction);
 int getInstrIndex(int instruction);
@@ -626,7 +626,7 @@ int OP_SW      = 43;
     
 int *OPCODES; // array of strings representing MIPS opcodes
 
-int FCT_NOP     = 0;
+// int FCT_NOP     = 0;
 int FCT_SLL     = 0;
 int FCT_SLLV    = 2;
 int FCT_SRL     = 4;
@@ -649,7 +649,7 @@ int opcode      = 0;
 int rs          = 0;
 int rt          = 0;
 int rd          = 0;
-int sa          = 0;
+int shamt       = 0;
 int immediate   = 0;
 int function    = 0;
 int instr_index = 0;
@@ -659,7 +659,7 @@ int instr_index = 0;
 void initDecoder() {
     OPCODES = malloc(44 * SIZEOFINTSTAR);
 
-    *(OPCODES + OP_SPECIAL) = (int) "nop";
+    *(OPCODES + OP_SPECIAL) = (int) "sll";
     *(OPCODES + OP_J)       = (int) "j";
     *(OPCODES + OP_JAL)     = (int) "jal";
     *(OPCODES + OP_BEQ)     = (int) "beq";
@@ -670,7 +670,7 @@ void initDecoder() {
 
     FUNCTIONS = malloc(43 * SIZEOFINTSTAR);
 
-    *(FUNCTIONS + FCT_NOP)     = (int) "nop";
+    //*(FUNCTIONS + FCT_NOP)     = (int) "nop";
     *(FUNCTIONS + FCT_SLL)     = (int) "sll";
     *(FUNCTIONS + FCT_SLLV)    = (int) "sllv";
     *(FUNCTIONS + FCT_SRL)     = (int) "srl";
@@ -697,7 +697,7 @@ void storeInstruction(int baddr, int instruction);
 
 void emitInstruction(int instruction);
 void emitRFormat(int opcode, int rs, int rt, int rd, int function);
-void emitRSFormat(int opcode, int rs, int rt, int rd, int sa, int function);
+//void emitRSFormat(int opcode, int rs, int rt, int rd, int shamt, int function);
 void emitIFormat(int opcode, int rs, int rt, int immediate);
 void emitJFormat(int opcode, int instr_index);
 
@@ -3534,7 +3534,7 @@ void emitMainEntry() {
     // since we load positive integers < 2^28 which take
     // no more than 8 instructions each, see load_integer
     while (i < 16) {
-        emitRFormat(OP_SPECIAL, 0, 0, 0, FCT_NOP);
+        emitRFormat(OP_SPECIAL, 0, 0, 0, FCT_SLL);
 
         i = i + 1;
     }
@@ -3696,19 +3696,19 @@ int encodeRFormat(int opcode, int rs, int rt, int rd, int function) {
 // 32 bit
 //
 // +------+-----+-----+-----+-----+------+
-// |opcode|  rs |  rt |  rd |  sa |fction|
+// |opcode|  rs |  rt |  rd |shamt|fction|
 // +------+-----+-----+-----+-----+------+
 //    6      5     5     5     5     6
 
-int encodeRSFormat(int opcode, int rs, int rt, int rd, int sa, int function) {
+//int encodeRSFormat(int opcode, int rs, int rt, int rd, int shamt, int function) {
     // assert: 0 <= opcode < 2^6
     // assert: 0 <= rs < 2^5
     // assert: 0 <= rt < 2^5
     // assert: 0 <= rd < 2^5
-    // assert: 0 <= sa < 2^5
+    // assert: 0 <= shamt < 2^5
     // assert: 0 <= function < 2^6
-    return leftShift(leftShift(leftShift(leftShift(leftShift(opcode, 5) + rs, 5) + rt, 5) + rd, 5) + sa, 6) + function;
-}
+//    return leftShift(leftShift(leftShift(leftShift(leftShift(opcode, 5) + rs, 5) + rt, 5) + rd, 5) + shamt, 6) + function;
+//}
 
 // -----------------------------------------------------------------
 // 32 bit
@@ -3758,7 +3758,7 @@ int getRD(int instruction) {
     return rightShift(leftShift(instruction, 16), 27);
 }
 
-int getSA(int instruction) {
+int getShamt(int instruction) {
     return rightShift(leftShift(instruction, 21), 27);
 }
 
@@ -3811,14 +3811,14 @@ void decode() {
 // 32 bit
 //
 // +------+-----+-----+-----+-----+------+
-// |opcode|  rs |  rt |  rd |  sa |fction|
+// |opcode|  rs |  rt |  rd |shamt|fction|
 // +------+-----+-----+-----+-----+------+
 //    6      5     5     5     5     6
 void decodeRFormat() {
     rs          = getRS(ir);
     rt          = getRT(ir);
     rd          = getRD(ir);
-    sa          = getSA(ir);
+    shamt       = getShamt(ir);
     immediate   = 0;
     function    = getFunction(ir);
     instr_index = 0;
@@ -3891,36 +3891,36 @@ void emitRFormat(int opcode, int rs, int rt, int rd, int function) {
 
     if (opcode == OP_SPECIAL) {
         if (function == FCT_JR)
-            emitRFormat(OP_SPECIAL, 0, 0, 0, FCT_NOP); // delay slot
+            emitRFormat(OP_SPECIAL, 0, 0, 0, FCT_SLL); // delay slot
         else if (function == FCT_MFLO) {
             // In MIPS I-III two instructions after MFLO/MFHI
             // must not modify the LO/HI registers
-            emitRFormat(OP_SPECIAL, 0, 0, 0, FCT_NOP); // pipeline delay
-            emitRFormat(OP_SPECIAL, 0, 0, 0, FCT_NOP); // pipeline delay
+            emitRFormat(OP_SPECIAL, 0, 0, 0, FCT_SLL); // pipeline delay
+            emitRFormat(OP_SPECIAL, 0, 0, 0, FCT_SLL); // pipeline delay
         } else if (function == FCT_MFHI) {
-            emitRFormat(OP_SPECIAL, 0, 0, 0, FCT_NOP); // pipeline delay
-            emitRFormat(OP_SPECIAL, 0, 0, 0, FCT_NOP); // pipeline delay
+            emitRFormat(OP_SPECIAL, 0, 0, 0, FCT_SLL); // pipeline delay
+            emitRFormat(OP_SPECIAL, 0, 0, 0, FCT_SLL); // pipeline delay
         }
     }
 }
 
-void emitRSFormat(int opcode, int rs, int rt, int rd, int sa, int function) {
-    emitInstruction(encodeRSFormat(opcode, rs, rt, rd, sa, function));
-}
+//void emitRSFormat(int opcode, int rs, int rt, int rd, int shamt, int function) {
+//    emitInstruction(encodeRSFormat(opcode, rs, rt, rd, shamt, function));
+//}
 
 void emitIFormat(int opcode, int rs, int rt, int immediate) {
     emitInstruction(encodeIFormat(opcode, rs, rt, immediate));
 
     if (opcode == OP_BEQ)
-        emitRFormat(OP_SPECIAL, 0, 0, 0, FCT_NOP); // delay slot
+        emitRFormat(OP_SPECIAL, 0, 0, 0, FCT_SLL); // delay slot
     else if (opcode == OP_BNE)
-        emitRFormat(OP_SPECIAL, 0, 0, 0, FCT_NOP); // delay slot
+        emitRFormat(OP_SPECIAL, 0, 0, 0, FCT_SLL); // delay slot
 }
 
 void emitJFormat(int opcode, int instr_index) {
     emitInstruction(encodeJFormat(opcode, instr_index));
 
-    emitRFormat(OP_SPECIAL, 0, 0, 0, FCT_NOP); // delay slot
+    emitRFormat(OP_SPECIAL, 0, 0, 0, FCT_SLL); // delay slot
 }
 
 void fixup_relative(int fromAddress) {
@@ -5039,7 +5039,7 @@ void fct_syscall() {
 //}
 
 void fct_sll() { // Shift left logical immediate
-    if (sa != 0){ //SLL
+    if (shamt != 0){ //SLL
         if (debug) {
             printFunction(function);
             print((int*) " ");
@@ -5049,7 +5049,7 @@ void fct_sll() { // Shift left logical immediate
             print((int*) ",");
             printRegister(rt);
             print((int*) ",");
-            print(itoa(signExtend(sa), string_buffer, 10, 0, 0));
+            print(itoa(signExtend(shamt), string_buffer, 10, 0, 0));
             if (interpret) {
                 print((int*) ": ");
                 printRegister(rd);
@@ -5068,7 +5068,7 @@ void fct_sll() { // Shift left logical immediate
     
 
         if (interpret) {
-            *(registers+rd) = leftShift(*(registers+rs), sa);
+            *(registers+rd) = leftShift(*(registers+rs), shamt);
 
             pc = pc + WORDSIZE;
         }
@@ -5146,7 +5146,7 @@ void fct_srl() { // Shift right logical immediate
         print((int*) ",");
         printRegister(rt);
         print((int*) ",");
-        print(itoa(signExtend(sa), string_buffer, 10, 0, 0));
+        print(itoa(signExtend(shamt), string_buffer, 10, 0, 0));
         if (interpret) {
             print((int*) ": ");
             printRegister(rd);
@@ -5164,7 +5164,7 @@ void fct_srl() { // Shift right logical immediate
     }
 
     if (interpret) {
-        *(registers+rd) = rightShift(*(registers+rs),  sa);
+        *(registers+rd) = rightShift(*(registers+rs),  shamt);
 
         pc = pc + WORDSIZE;
     }
@@ -5919,9 +5919,7 @@ void execute() {
     }
 
     if (opcode == OP_SPECIAL) {
-        if (function == FCT_NOP)
-            fct_sll();
-        else if (function == FCT_ADDU)
+        if (function == FCT_ADDU)
             fct_addu();
         else if (function == FCT_SLL)
             fct_sll();
