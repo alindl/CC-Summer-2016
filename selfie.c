@@ -269,6 +269,8 @@ int SYM_NOTEQ        = 24; // !=
 int SYM_MOD          = 25; // %
 int SYM_CHARACTER    = 26; // character
 int SYM_STRING       = 27; // string
+int SYM_LS			 = 28; // <<
+int SYM_RS			 = 29; // >>
 
 int *SYMBOLS; // array of strings representing symbols
 
@@ -330,6 +332,8 @@ void initScanner () {
     *(SYMBOLS + SYM_MOD)          = (int) "%";
     *(SYMBOLS + SYM_CHARACTER)    = (int) "character";
     *(SYMBOLS + SYM_STRING)       = (int) "string";
+    *(SYMBOLS + SYM_LS)	          = (int) "<<";
+    *(SYMBOLS + SYM_RS)           = (int) ">>";
 
     character = CHAR_EOF;
     symbol    = SYM_EOF;
