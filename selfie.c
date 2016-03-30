@@ -2863,15 +2863,13 @@ int gr_shift() {
             if (ltype != rtype)
                 typeWarning(ltype, rtype);
             else  
-                emitRSFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), previousTemporary(),(int) "WoAuchImmerDasist", FCT_SLL);
-//TODO: Herausfinden wo der shamt gespeichert wird
+                emitRSFormat(OP_SPECIAL, REG_ZR, previousTemporary(), currentTemporary(), currentTemporary(), FCT_SLL);
         } else if (operatorSymbol == SYM_RS) {
             if (ltype != rtype)
                 typeWarning(ltype, rtype);
             else
-                emitRSFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), previousTemporary(),(int) "WoAuchImmerDasist", FCT_SRL);
-//TODO: Herausfinden wo der shamt gespeichert wird        
-}
+                emitRSFormat(OP_SPECIAL, REG_ZR, previousTemporary(), currentTemporary(), currentTemporary(), FCT_SRL);
+        }
 
         tfree(1);
     }
