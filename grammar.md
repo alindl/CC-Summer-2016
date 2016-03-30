@@ -37,6 +37,8 @@ term             = factor { ( "*" | "/" | "%" ) factor } .
 
 simpleExpression = [ "-" ] term { ( "+" | "-" ) term } .
 
+left/rightShift	 = [ "-" ] term [ ( "<<" | ">>" ) term ] .
+
 expression       = simpleExpression [ ( "==" | "!=" | "<" | ">" | "<=" | ">=" ) simpleExpression ] .
 
 while            = "while" "(" expression ")" 
