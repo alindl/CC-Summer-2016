@@ -269,8 +269,8 @@ int SYM_NOTEQ        = 24; // !=
 int SYM_MOD          = 25; // %
 int SYM_CHARACTER    = 26; // character
 int SYM_STRING       = 27; // string
-int SYM_LS			 = 28; // <<
-int SYM_RS			 = 29; // >>
+int SYM_LS           = 28; // <<
+int SYM_RS           = 29; // >>
 
 int *SYMBOLS; // array of strings representing symbols
 
@@ -332,7 +332,7 @@ void initScanner () {
     *(SYMBOLS + SYM_MOD)          = (int) "%";
     *(SYMBOLS + SYM_CHARACTER)    = (int) "character";
     *(SYMBOLS + SYM_STRING)       = (int) "string";
-    *(SYMBOLS + SYM_LS)	          = (int) "<<";
+    *(SYMBOLS + SYM_LS)           = (int) "<<";
     *(SYMBOLS + SYM_RS)           = (int) ">>";
 
     character = CHAR_EOF;
@@ -1895,6 +1895,10 @@ int getSymbol() {
             getCharacter();
 
             symbol = SYM_LEQ;
+        } else if(character == CHAR_LT){
+         	getCharacter();
+        	
+        	symbol = SYM_LS;
         } else
             symbol = SYM_LT;
 
@@ -1905,6 +1909,10 @@ int getSymbol() {
             getCharacter();
 
             symbol = SYM_GEQ;
+        }else if(character == CHAR_GT){
+         	getCharacter();
+        	
+        	symbol = SYM_RS;
         } else
             symbol = SYM_GT;
 
@@ -2096,6 +2104,15 @@ int isPlusOrMinus() {
     if (symbol == SYM_MINUS)
         return 1;
     else if (symbol == SYM_PLUS)
+        return 1;
+    else
+        return 0;
+}
+
+int isLeftOrRightShift() {
+    if (symbol == SYM_LS)
+        return 1;
+    else if (symbol == SYM_RS)
         return 1;
     else
         return 0;
