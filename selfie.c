@@ -430,6 +430,7 @@ int isExpression();
 int isLiteral();
 int isStarOrDivOrModulo();
 int isPlusOrMinus();
+int isLeftOrRightShift();
 int isComparison();
 
 int lookForFactor();
@@ -701,7 +702,7 @@ void storeInstruction(int baddr, int instruction);
 
 void emitInstruction(int instruction);
 void emitRFormat(int opcode, int rs, int rt, int rd, int function);
-//void emitRSFormat(int opcode, int rs, int rt, int rd, int shamt, int function);
+void emitRSFormat(int opcode, int rs, int rt, int rd, int shamt, int function);
 void emitIFormat(int opcode, int rs, int rt, int immediate);
 void emitJFormat(int opcode, int instr_index);
 
@@ -2805,6 +2806,82 @@ int gr_simpleExpression() {
     return ltype;
 }
 
+int gr_shift() {
+    int sign;
+    int ltype;
+    int operatorSymbol;
+    int rtype;
+
+    // assert: n = allocatedTemporaries
+
+    // optional: -
+    if (symbol == SYM_MINUS) {
+        sign = 1;
+
+        mayBeINTMIN = 1;
+        isINTMIN    = 0;
+
+        getSymbol();
+
+        mayBeINTMIN = 0;
+
+        if (isINTMIN) {
+            isINTMIN = 0;
+            
+            // avoids 0-INT_MIN overflow when bootstrapping
+            // even though 0-INT_MIN == INT_MIN
+            sign = 0;
+        }
+    } else
+        sign = 0;
+
+    ltype = gr_term();
+
+    // assert: allocatedTemporaries == n + 1
+
+    if (sign) {
+        if (ltype != INT_T) {
+            typeWarning(INT_T, ltype);
+
+            ltype = INT_T;
+        }
+
+        emitRFormat(OP_SPECIAL, REG_ZR, currentTemporary(), currentTemporary(), FCT_SUBU);
+    }
+
+    // << or >> ?
+    while (isLeftOrRightShift()) {
+        operatorSymbol = symbol;
+
+        getSymbol();
+
+        rtype = gr_term();
+
+        // assert: allocatedTemporaries == n + 2
+
+        if (operatorSymbol == SYM_LS) {
+            if (ltype != rtype)
+                typeWarning(ltype, rtype);
+            else  
+                emitRSFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), previousTemporary(),(int) "WoAuchImmerDasist", FCT_SLL);
+//TODO: Herausfinden wo der shamt gespeichert wird
+        } else if (operatorSymbol == SYM_RS) {
+            if (ltype != rtype)
+                typeWarning(ltype, rtype);
+            else
+                emitRSFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), previousTemporary(),(int) "WoAuchImmerDasist", FCT_SRL);
+//TODO: Herausfinden wo der shamt gespeichert wird        
+}
+
+        tfree(1);
+    }
+
+    // assert: allocatedTemporaries == n + 1
+
+    return ltype;
+}
+
+
 int gr_expression() {
     int ltype;
     int operatorSymbol;
@@ -3934,9 +4011,9 @@ void emitRFormat(int opcode, int rs, int rt, int rd, int function) {
     }
 }
 
-//void emitRSFormat(int opcode, int rs, int rt, int rd, int shamt, int function) {
-//    emitInstruction(encodeRSFormat(opcode, rs, rt, rd, shamt, function));
-//}
+void emitRSFormat(int opcode, int rs, int rt, int rd, int shamt, int function) {
+    emitInstruction(encodeRSFormat(opcode, rs, rt, rd, shamt, function));
+}
 
 void emitIFormat(int opcode, int rs, int rt, int immediate) {
     emitInstruction(encodeIFormat(opcode, rs, rt, immediate));
