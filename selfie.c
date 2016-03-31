@@ -286,6 +286,9 @@ int maxStringLength     = 128; // maximum number of characters in a string
 
 // ------------------------ GLOBAL VARIABLES -----------------------
 
+//int lol1 = 4;
+//int lol2 = 2;
+
 int lineNumber = 1; // current Line Number for error reporting
 
 int *identifier = (int*) 0; // stores scanned identifier as string
@@ -2749,94 +2752,7 @@ int gr_simpleExpression() {
     int rtype;
 
     // assert: n = allocatedTemporaries
-    if (symbol == SYM_RS){
     
-        return gr_shift();
-    
-    } else if (symbol == SYM_LS){
-        
-        return gr_shift();
-
-    } else {
-        // optional: -
-        if (symbol == SYM_MINUS) {
-            sign = 1;
-
-            mayBeINTMIN = 1;
-            isINTMIN    = 0;
-
-            getSymbol();
-
-            mayBeINTMIN = 0;
-
-            if (isINTMIN) {
-                isINTMIN = 0;
-            
-                // avoids 0-INT_MIN overflow when bootstrapping
-                // even though 0-INT_MIN == INT_MIN
-                sign = 0;
-            }
-        } else
-            sign = 0;
-
-        ltype = gr_term();
-
-        // assert: allocatedTemporaries == n + 1
-
-        if (sign) {
-            if (ltype != INT_T) {
-                typeWarning(INT_T, ltype);
-
-                ltype = INT_T;
-            }
-
-            emitRFormat(OP_SPECIAL, REG_ZR, currentTemporary(), currentTemporary(), FCT_SUBU);
-        }
-
-        // + or -?
-        while (isPlusOrMinus()) {
-            operatorSymbol = symbol;
-
-            getSymbol();
-
-            rtype = gr_term();
-
-            // assert: allocatedTemporaries == n + 2
-
-            if (operatorSymbol == SYM_PLUS) {
-                if (ltype == INTSTAR_T) {
-                    if (rtype == INT_T)
-                        // pointer arithmetic: factor of 2^2 of integer operand
-                        emitLeftShiftBy(2);
-                } else if (rtype == INTSTAR_T)
-                    typeWarning(ltype, rtype);
-
-                emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), previousTemporary(), FCT_ADDU);
-
-            } else if (operatorSymbol == SYM_MINUS) {
-                if (ltype != rtype)
-                    typeWarning(ltype, rtype);
-
-                emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), previousTemporary(), FCT_SUBU);
-            }
-
-            tfree(1);
-        }
-
-        // assert: allocatedTemporaries == n + 1
-
-        return ltype;
-    }
-}
-
-int gr_shift() {
-    int sign;
-    int ltype;
-    int operatorSymbol;
-    int rtype;
-
-    // assert: n = allocatedTemporaries
-
     // optional: -
     if (symbol == SYM_MINUS) {
         sign = 1;
@@ -2872,8 +2788,8 @@ int gr_shift() {
         emitRFormat(OP_SPECIAL, REG_ZR, currentTemporary(), currentTemporary(), FCT_SUBU);
     }
 
-    // << or >> ?
-    while (isLeftOrRightShift()) {
+    // + or -?
+    while (isPlusOrMinus()) {
         operatorSymbol = symbol;
 
         getSymbol();
@@ -2882,16 +2798,57 @@ int gr_shift() {
 
         // assert: allocatedTemporaries == n + 2
 
+        if (operatorSymbol == SYM_PLUS) {
+            if (ltype == INTSTAR_T) {
+                if (rtype == INT_T)
+                    // pointer arithmetic: factor of 2^2 of integer operand
+                    emitLeftShiftBy(2);
+            } else if (rtype == INTSTAR_T)
+                typeWarning(ltype, rtype);
+
+            emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), previousTemporary(), FCT_ADDU);
+
+        } else if (operatorSymbol == SYM_MINUS) {
+            if (ltype != rtype)
+                typeWarning(ltype, rtype);
+
+            emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), previousTemporary(), FCT_SUBU);
+        }
+
+        tfree(1);
+    }
+
+    // assert: allocatedTemporaries == n + 1
+
+    return ltype;
+    
+}
+
+int gr_shift() {
+    int ltype;
+    int operatorSymbol;
+    int rtype;
+
+    ltype = gr_simpleExpression();
+
+    // << or >> ?
+    if (isLeftOrRightShift()) {
+        operatorSymbol = symbol;
+
+        getSymbol();
+
+        rtype = gr_simpleExpression();
+
         if (operatorSymbol == SYM_LS) {
             if (ltype != rtype)
                 typeWarning(ltype, rtype);
             else  
-                emitRSFormat(OP_SPECIAL, REG_ZR, previousTemporary(), currentTemporary(), currentTemporary(), FCT_SLL);
+                emitRFormat(OP_SPECIAL, currentTemporary(), previousTemporary(), previousTemporary(), FCT_SLLV);
         } else if (operatorSymbol == SYM_RS) {
             if (ltype != rtype)
                 typeWarning(ltype, rtype);
             else
-                emitRSFormat(OP_SPECIAL, REG_ZR, previousTemporary(), currentTemporary(), currentTemporary(), FCT_SRL);
+                emitRFormat(OP_SPECIAL, currentTemporary(), previousTemporary(), previousTemporary(), FCT_SRLV);
         }
 
         tfree(1);
@@ -2910,7 +2867,7 @@ int gr_expression() {
 
     // assert: n = allocatedTemporaries
 
-    ltype = gr_simpleExpression();
+    ltype = gr_shift();
 
     // assert: allocatedTemporaries == n + 1
 
@@ -2920,7 +2877,7 @@ int gr_expression() {
 
         getSymbol();
 
-        rtype = gr_simpleExpression();
+        rtype = gr_shift();
 
         // assert: allocatedTemporaries == n + 2
 
@@ -5209,7 +5166,7 @@ void fct_sll() { // Shift left logical immediate
     
 
         if (interpret) {
-            *(registers+rd) = leftShift(*(registers+rs), shamt);
+            *(registers+rd) = leftShift(*(registers+rt), shamt);
 
             pc = pc + WORDSIZE;
         }
@@ -5261,7 +5218,7 @@ void fct_sllv() { // Shift left logical
     }
 
     if (interpret) {
-        *(registers+rd) = leftShift(*(registers+rs), *(registers+rt));
+        *(registers+rd) = leftShift(*(registers+rt), *(registers+rs));
 
         pc = pc + WORDSIZE;
     }
@@ -5305,7 +5262,7 @@ void fct_srl() { // Shift right logical immediate
     }
 
     if (interpret) {
-        *(registers+rd) = rightShift(*(registers+rs),  shamt);
+        *(registers+rd) = rightShift(*(registers+rt),  shamt);
 
         pc = pc + WORDSIZE;
     }
@@ -5347,7 +5304,7 @@ void fct_srlv() { // Shift right logical
     }
 
     if (interpret) {
-        *(registers+rd) = rightShift(*(registers+rs), *(registers+rt));
+        *(registers+rd) = rightShift(*(registers+rt), *(registers+rs));
 
         pc = pc + WORDSIZE;
     }

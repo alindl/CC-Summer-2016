@@ -35,11 +35,11 @@ factor           = [ cast ]
 
 term             = factor { ( "*" | "/" | "%" ) factor } .
 
-simpleExpression = shift | ( [ "-" ] term { ( "+" | "-" ) term } ) .
+simpleExpression = [ "-" ] term { ( "+" | "-" ) term } .
 
-shift            = [ "-" ] term ( ( "<<" | ">>" ) term ) .
+shift            = simpleExpression { ( "<<" | ">>" ) simpleExpression } .
 
-expression       = simpleExpression [ ( "==" | "!=" | "<" | ">" | "<=" | ">=" ) simpleExpression] .
+expression       = shift [ ( "==" | "!=" | "<" | ">" | "<=" | ">=" ) shift ] .
 
 while            = "while" "(" expression ")" 
                              ( statement |
