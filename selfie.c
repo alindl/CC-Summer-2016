@@ -286,9 +286,6 @@ int maxStringLength     = 128; // maximum number of characters in a string
 
 // ------------------------ GLOBAL VARIABLES -----------------------
 
-//int lol1 = 4;
-//int lol2 = 2;
-
 int lineNumber = 1; // current Line Number for error reporting
 
 int *identifier = (int*) 0; // stores scanned identifier as string
