@@ -2741,7 +2741,7 @@ int gr_term() {
 
     return ltype;
 }
-
+ 
 int gr_simpleExpression() {
     int sign;
     int ltype;
