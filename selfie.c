@@ -308,7 +308,7 @@ int sourceFD    = 0;        // file descriptor of open source file
 // ------------------------- INITIALIZATION ------------------------
 
 void initScanner () {
-    SYMBOLS = malloc(28 * SIZEOFINTSTAR);
+    SYMBOLS = malloc(32 * SIZEOFINTSTAR);
 
     *(SYMBOLS + SYM_IDENTIFIER)   = (int) "identifier";
     *(SYMBOLS + SYM_INTEGER)      = (int) "integer";
@@ -2749,7 +2749,11 @@ int gr_simpleExpression() {
     int rtype;
 
     // assert: n = allocatedTemporaries
-    if (symbol == SYM_RS || symbol == SYM_LS){
+    if (symbol == SYM_RS){
+    
+        return gr_shift();
+    
+    } else if (symbol == SYM_LS){
         
         return gr_shift();
 
