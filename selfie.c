@@ -6744,16 +6744,24 @@ int main(int argc, int *argv) {
     initDecoder();
     
     initInterpreter();
-
+    
     selfieName = (int*) *argv;
 
     argc = argc - 1;
     argv = argv + 1;
 
+
     //assignment00
     print((int*)"This is BernAnAn CzuLiPe Selfie");
     println();
     //assignment00
+    //println();
+    //print(itoa( -4,string_buffer,2,0,0));
+    //println();
+    //print(itoa( -4 >> 1,string_buffer,2,0,0));
+    //println();
+    //println();
+
 
     if (selfie(argc, (int*) argv) != 0) {
         print(selfieName);

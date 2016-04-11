@@ -3,7 +3,7 @@ int main(int argc, int *argv) {
     int lol2;
     int lol3;
     lol1 = 4;
-    lol2 = 2;
+    lol2 = 1;
     lol3 = 0;
     
     lol3 = lol1 << lol2;
