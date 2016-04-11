@@ -1192,9 +1192,9 @@ int leftShift(int n, int b) {
     // assert: b >= 0;
 
     if (b < 31)
-        return n * twoToThePowerOf(b);
+        return n << b;
     else if (b == 31)
-        return n * twoToThePowerOf(30) * 2;
+        return (n << 30) * 2;
     else
         return 0;
 }
@@ -1204,14 +1204,13 @@ int rightShift(int n, int b) {
 
     if (n >= 0) {
         if (b < 31)
-            return n / twoToThePowerOf(b);
+            return n >> b;
         else
             return 0;
     } else if (b < 31)
         // works even if n == INT_MIN:
         // shift right n with msb reset and then restore msb
-        return ((n + 1) + INT_MAX) / twoToThePowerOf(b) +
-            (INT_MAX / twoToThePowerOf(b) + 1);
+        return (((n + 1) + INT_MAX) >> b) + ((INT_MAX >> b) + 1);
     else if (b == 31)
         return 1;
     else
@@ -6736,9 +6735,14 @@ int main(int argc, int *argv) {
     println();
     //assignment00
     //println();
-    //print(itoa( -4,string_buffer,2,0,0));
+    //print((int*) "Input is ");
+    //print(itoa( 4,string_buffer,10,0,0));
     //println();
-    //print(itoa( -4 >> 1,string_buffer,2,0,0));
+    //print((int*) ">> is ");
+    //print(itoa( 4 >> 1,string_buffer,10,0,0));
+    //println();
+    //print((int*) "<< is ");
+    //print(itoa( 4 << 1,string_buffer,10,0,0));
     //println();
     //println();
 
