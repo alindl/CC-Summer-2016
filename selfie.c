@@ -293,8 +293,8 @@ int* integer    = (int*) 0; // stores scanned integer as string
 int* string     = (int*) 0; // stores scanned string
 
 int literal = 0; // stores numerical value of scanned integer or character
-int constAtt = 0; //TODO: New Global variables
-int constFlag = 0;
+// int constAtt = 0; //TODO: New Global variables
+// int constFlag = 0;
 
 int initialValue = 0; // stores initial value of variable definitions
 
@@ -2631,7 +2631,7 @@ int gr_factor() {
   // identifier?
   } else if (symbol == SYM_IDENTIFIER) {
 
-    constFlag = 0;
+    // constFlag = 0;
     variableOrProcedureName = identifier;
 
     getSymbol();
@@ -2658,7 +2658,7 @@ int gr_factor() {
     load_integer(literal);
     //TODO: delay integer load
 
-    constFlag = constFlag + 1;
+    // constFlag = constFlag + 1;
     getSymbol();
 
     type = INT_T;
@@ -2762,7 +2762,7 @@ int gr_term() {
   // }
 }
     tfree(1);
-    constFlag = 0;
+    // constFlag = 0;
 
   // assert: allocatedTemporaries == n + 1
 
