@@ -295,8 +295,6 @@ int* string     = (int*) 0; // stores scanned string
 int literal = 0; // stores numerical value of scanned integer or character
 int constAtt = 0; //TODO: New Global variables
 int constFlag = 0;
-constAtt = malloc(maxIntegerLength + 1); //TODO: New Global variables
-constFlag = malloc(1);
 
 int initialValue = 0; // stores initial value of variable definitions
 
@@ -347,6 +345,8 @@ void initScanner () {
 
     character = CHAR_EOF;
     symbol    = SYM_EOF;
+    constAtt = malloc(maxIntegerLength + 1); //TODO: New Global variables
+    constFlag = malloc(1);
 }
 
 void resetScanner() {
