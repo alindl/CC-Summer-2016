@@ -2724,7 +2724,7 @@ int gr_term() {
 
     rtype = gr_factor();
 
-    load_integer(literal);
+    // load_integer(literal);
     //TODO: Das irgendwo spaeter verwenden
 
     // assert: allocatedTemporaries == n + 2
