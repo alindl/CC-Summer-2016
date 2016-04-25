@@ -345,8 +345,8 @@ void initScanner () {
 
     character = CHAR_EOF;
     symbol    = SYM_EOF;
-    constAtt = malloc(maxIntegerLength + 1); //TODO: New Global variables
-    constFlag = malloc(1);
+    // constAtt = malloc(maxIntegerLength + 1); //TODO: New Global variables
+    // constFlag = malloc(1);
 }
 
 void resetScanner() {
