@@ -2736,15 +2736,15 @@ int gr_term() {
    if (operatorSymbol == SYM_ASTERISK) {
      constAtt = constAtt * literal;
      load_integer(constAtt);
-     emitRFormat(OP_SPECIAL, 0, 0, currentTemporary(), FCT_MFLO);
+     emitRFormat(OP_SPECIAL, 0, 0, previousTemporary(), FCT_MFLO);
    } else if (operatorSymbol == SYM_DIV) {
      constAtt = constAtt / literal;
      load_integer(constAtt);
-     emitRFormat(OP_SPECIAL, 0, 0, currentTemporary(), FCT_MFLO);
+     emitRFormat(OP_SPECIAL, 0, 0, previousTemporary(), FCT_MFLO);
    } else if (operatorSymbol == SYM_MOD) {
      constAtt = constAtt % literal;
      load_integer(constAtt);
-     emitRFormat(OP_SPECIAL, 0, 0, currentTemporary(), FCT_MFHI);
+     emitRFormat(OP_SPECIAL, 0, 0, previousTemporary(), FCT_MFHI);
    }
  } else {
     if (operatorSymbol == SYM_ASTERISK) {
