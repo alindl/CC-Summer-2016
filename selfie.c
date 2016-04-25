@@ -293,8 +293,8 @@ int* integer    = (int*) 0; // stores scanned integer as string
 int* string     = (int*) 0; // stores scanned string
 
 int literal = 0; // stores numerical value of scanned integer or character
-// int constAtt = 0; //TODO: New Global variables
-// int constFlag = 0;
+int constAtt = 0; //TODO: New Global variables
+int constFlag = 0;
 
 int initialValue = 0; // stores initial value of variable definitions
 
@@ -345,8 +345,8 @@ void initScanner () {
 
     character = CHAR_EOF;
     symbol    = SYM_EOF;
-    // constAtt = malloc(maxIntegerLength + 1); //TODO: New Global variables
-    // constFlag = malloc(1);
+    constAtt = malloc(maxIntegerLength + 1); //TODO: New Global variables
+    constFlag = malloc(1);
 }
 
 void resetScanner() {
@@ -2631,7 +2631,7 @@ int gr_factor() {
   // identifier?
   } else if (symbol == SYM_IDENTIFIER) {
 
-    // constFlag = 0;
+    constFlag = 0;
     variableOrProcedureName = identifier;
 
     getSymbol();
@@ -2655,10 +2655,10 @@ int gr_factor() {
 
   // integer?
   } else if (symbol == SYM_INTEGER) {
-    load_integer(literal);
+    // load_integer(literal);
     //TODO: delay integer load
 
-    // constFlag = constFlag + 1;
+    constFlag = constFlag + 1;
     getSymbol();
 
     type = INT_T;
@@ -2710,10 +2710,10 @@ int gr_term() {
   // assert: n = allocatedTemporaries
 
   ltype = gr_factor();
-  // load_integer(literal);
-  //TODO: Das irgendwo spaeter verwenden
+  load_integer(literal);
+  // TODO: Das irgendwo spaeter verwenden
 
-  // constAtt = literal;
+  constAtt = literal;
   // assert: allocatedTemporaries == n + 1
 
   // * / or % ?
@@ -2724,7 +2724,7 @@ int gr_term() {
 
     rtype = gr_factor();
 
-    // load_integer(literal);
+    load_integer(literal);
     //TODO: Das irgendwo spaeter verwenden
 
     // assert: allocatedTemporaries == n + 2
@@ -2732,21 +2732,21 @@ int gr_term() {
     if (ltype != rtype)
       typeWarning(ltype, rtype);
 
- // if(constFlag == 2){
- //   if (operatorSymbol == SYM_ASTERISK) {
- //     constAtt = constAtt * literal;
- //     load_integer(constAtt);
- //     emitRFormat(OP_SPECIAL, 0, 0, previousTemporary(), FCT_MFLO);
- //   } else if (operatorSymbol == SYM_DIV) {
- //     constAtt = constAtt / literal;
- //     load_integer(constAtt);
- //     emitRFormat(OP_SPECIAL, 0, 0, previousTemporary(), FCT_MFLO);
- //   } else if (operatorSymbol == SYM_MOD) {
- //     constAtt = constAtt % literal;
- //     load_integer(constAtt);
- //     emitRFormat(OP_SPECIAL, 0, 0, previousTemporary(), FCT_MFHI);
- //   }
- // } else {
+ if(constFlag == 2){
+   if (operatorSymbol == SYM_ASTERISK) {
+     constAtt = constAtt * literal;
+     load_integer(constAtt);
+     emitRFormat(OP_SPECIAL, 0, 0, currentTemporary(), FCT_MFLO);
+   } else if (operatorSymbol == SYM_DIV) {
+     constAtt = constAtt / literal;
+     load_integer(constAtt);
+     emitRFormat(OP_SPECIAL, 0, 0, currentTemporary(), FCT_MFLO);
+   } else if (operatorSymbol == SYM_MOD) {
+     constAtt = constAtt % literal;
+     load_integer(constAtt);
+     emitRFormat(OP_SPECIAL, 0, 0, currentTemporary(), FCT_MFHI);
+   }
+ } else {
     if (operatorSymbol == SYM_ASTERISK) {
       emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), 0, FCT_MULTU);
       emitRFormat(OP_SPECIAL, 0, 0, previousTemporary(), FCT_MFLO);
@@ -2759,11 +2759,11 @@ int gr_term() {
       emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), 0, FCT_DIVU);
       emitRFormat(OP_SPECIAL, 0, 0, previousTemporary(), FCT_MFHI);
     }
-  // }
-}
-    tfree(1);
-    // constFlag = 0;
+   }
 
+    tfree(1);
+    constFlag = 0;
+}
   // assert: allocatedTemporaries == n + 1
 
   return ltype;
