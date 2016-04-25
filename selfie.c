@@ -2655,7 +2655,7 @@ int gr_factor() {
 
   // integer?
   } else if (symbol == SYM_INTEGER) {
-    //load_integer(literal);
+    load_integer(literal);
     //TODO: delay integer load
 
     constFlag = constFlag + 1;
@@ -2710,10 +2710,10 @@ int gr_term() {
   // assert: n = allocatedTemporaries
 
   ltype = gr_factor();
-  load_integer(literal);
+  // load_integer(literal);
   //TODO: Das irgendwo spaeter verwenden
 
-  constAtt = literal;
+  // constAtt = literal;
   // assert: allocatedTemporaries == n + 1
 
   // * / or % ?
@@ -2724,7 +2724,7 @@ int gr_term() {
 
     rtype = gr_factor();
 
-    load_integer(literal);
+    // load_integer(literal);
     //TODO: Das irgendwo spaeter verwenden
 
     // assert: allocatedTemporaries == n + 2
