@@ -293,8 +293,10 @@ int* integer    = (int*) 0; // stores scanned integer as string
 int* string     = (int*) 0; // stores scanned string
 
 int literal = 0; // stores numerical value of scanned integer or character
-int constAtt = malloc(maxIntegerLength + 1); //TODO: New Global variables
-int constFlag = malloc(1);
+int constAtt = 0; //TODO: New Global variables
+int constFlag = 0;
+constAtt = malloc(maxIntegerLength + 1); //TODO: New Global variables
+constFlag = malloc(1);
 
 int initialValue = 0; // stores initial value of variable definitions
 
@@ -2761,7 +2763,6 @@ int gr_term() {
 }
     tfree(1);
     constFlag = 0;
-  }
 
   // assert: allocatedTemporaries == n + 1
 
