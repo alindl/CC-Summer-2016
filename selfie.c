@@ -293,6 +293,8 @@ int* integer    = (int*) 0; // stores scanned integer as string
 int* string     = (int*) 0; // stores scanned string
 
 int literal = 0; // stores numerical value of scanned integer or character
+int constAtt = malloc(maxIntegerLength + 1); //TODO: New Global variables
+int constFlag = malloc(1);
 
 int initialValue = 0; // stores initial value of variable definitions
 
@@ -2649,8 +2651,10 @@ int gr_factor() {
 
   // integer?
   } else if (symbol == SYM_INTEGER) {
-    load_integer(literal);
+    //load_integer(literal);
+    //TODO: delay integer load
 
+    constFlag = 1;
     getSymbol();
 
     type = INT_T;
@@ -2702,6 +2706,8 @@ int gr_term() {
   // assert: n = allocatedTemporaries
 
   ltype = gr_factor();
+  load_integer(literal);
+  //TODO: Das irgendwo spaeter verwenden
 
   // assert: allocatedTemporaries == n + 1
 
@@ -2712,6 +2718,9 @@ int gr_term() {
     getSymbol();
 
     rtype = gr_factor();
+
+    load_integer(literal);
+    //TODO: Das irgendwo spaeter verwenden
 
     // assert: allocatedTemporaries == n + 2
 
@@ -2730,7 +2739,7 @@ int gr_term() {
       emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), 0, FCT_DIVU);
       emitRFormat(OP_SPECIAL, 0, 0, previousTemporary(), FCT_MFHI);
     }
-
+}
     tfree(1);
   }
 
