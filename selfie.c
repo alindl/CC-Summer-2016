@@ -2628,6 +2628,8 @@ int gr_factor() {
 
   // identifier?
   } else if (symbol == SYM_IDENTIFIER) {
+
+    constFlag = 0;
     variableOrProcedureName = identifier;
 
     getSymbol();
@@ -2654,7 +2656,7 @@ int gr_factor() {
     //load_integer(literal);
     //TODO: delay integer load
 
-    constFlag = 1;
+    constFlag = constFlag + 1;
     getSymbol();
 
     type = INT_T;
@@ -2709,6 +2711,7 @@ int gr_term() {
   load_integer(literal);
   //TODO: Das irgendwo spaeter verwenden
 
+  constAtt = literal;
   // assert: allocatedTemporaries == n + 1
 
   // * / or % ?
@@ -2719,7 +2722,7 @@ int gr_term() {
 
     rtype = gr_factor();
 
-    load_integer(literal);
+    //load_integer(literal);
     //TODO: Das irgendwo spaeter verwenden
 
     // assert: allocatedTemporaries == n + 2
@@ -2727,6 +2730,21 @@ int gr_term() {
     if (ltype != rtype)
       typeWarning(ltype, rtype);
 
+ if(constFlag == 2){
+   if (operatorSymbol == SYM_ASTERISK) {
+     constAtt = constAtt * literal;
+     load_integer(constAtt);
+     emitRFormat(OP_SPECIAL, 0, 0, currentTemporary(), FCT_MFLO);
+   } else if (operatorSymbol == SYM_DIV) {
+     constAtt = constAtt / literal;
+     load_integer(constAtt);
+     emitRFormat(OP_SPECIAL, 0, 0, currentTemporary(), FCT_MFLO);
+   } else if (operatorSymbol == SYM_MOD) {
+     constAtt = constAtt % literal;
+     load_integer(constAtt);
+     emitRFormat(OP_SPECIAL, 0, 0, currentTemporary(), FCT_MFHI);
+   }
+ } else {
     if (operatorSymbol == SYM_ASTERISK) {
       emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), 0, FCT_MULTU);
       emitRFormat(OP_SPECIAL, 0, 0, previousTemporary(), FCT_MFLO);
@@ -2739,8 +2757,10 @@ int gr_term() {
       emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), 0, FCT_DIVU);
       emitRFormat(OP_SPECIAL, 0, 0, previousTemporary(), FCT_MFHI);
     }
+  }
 }
     tfree(1);
+    constFlag = 0;
   }
 
   // assert: allocatedTemporaries == n + 1
