@@ -293,8 +293,11 @@ int* integer    = (int*) 0; // stores scanned integer as string
 int* string     = (int*) 0; // stores scanned string
 
 int literal = 0; // stores numerical value of scanned integer or character
-int constAtt = 0; //TODO: New Global variables
+int constNew = 0;
 int constFlag = 0;
+
+int constSum = 0; //TODO: New Global variables
+int constFlaggyFlag = 0;
 
 int initialValue = 0; // stores initial value of variable definitions
 
@@ -345,8 +348,6 @@ void initScanner () {
 
     character = CHAR_EOF;
     symbol    = SYM_EOF;
-    // constAtt = malloc(maxIntegerLength + 1); //TODO: New Global variables
-    // constFlag = malloc(1);
 }
 
 void resetScanner() {
@@ -2556,6 +2557,8 @@ int gr_factor() {
 
   hasCast = 0;
 
+  constFlag = 0;
+
   type = INT_T;
 
   while (lookForFactor()) {
@@ -2566,6 +2569,7 @@ int gr_factor() {
     else
       getSymbol();
   }
+
 
   // optional cast: [ cast ]
   if (symbol == SYM_LPARENTHESIS) {
@@ -2631,7 +2635,6 @@ int gr_factor() {
   // identifier?
   } else if (symbol == SYM_IDENTIFIER) {
 
-    constFlag = 0;
     variableOrProcedureName = identifier;
 
     getSymbol();
@@ -2655,10 +2658,12 @@ int gr_factor() {
 
   // integer?
   } else if (symbol == SYM_INTEGER) {
-    // load_integer(literal);
+     //load_integer(literal);
     //TODO: delay integer load
 
-    constFlag = constFlag + 1;
+    constFlag = 1;
+    constNew = literal;
+
     getSymbol();
 
     type = INT_T;
@@ -2702,18 +2707,39 @@ int gr_factor() {
     return type;
 }
 
+
+int and(int one, int two){
+  if (one){
+    if(two){
+      return 1;
+    }
+  }
+  return 0;
+}
+
 int gr_term() {
   int ltype;
   int operatorSymbol;
   int rtype;
 
+  int doTheFolding;
+  int sumFolding;
+  int aweSum;
+  int awePart;
+
   // assert: n = allocatedTemporaries
+  
+  doTheFolding = 0;
 
   ltype = gr_factor();
-  load_integer(literal);
+
+  if(constFlag){
+    doTheFolding = 1;
+    sumFolding = constNew;
+  }
   // TODO: Das irgendwo spaeter verwenden
 
-  constAtt = literal;
+  
   // assert: allocatedTemporaries == n + 1
 
   // * / or % ?
@@ -2724,7 +2750,6 @@ int gr_term() {
 
     rtype = gr_factor();
 
-    load_integer(literal);
     //TODO: Das irgendwo spaeter verwenden
 
     // assert: allocatedTemporaries == n + 2
@@ -2732,42 +2757,52 @@ int gr_term() {
     if (ltype != rtype)
       typeWarning(ltype, rtype);
 
- // if(constFlag == 2){
-  //  if (operatorSymbol == SYM_ASTERISK) {
- //     constAtt = constAtt * literal;
- //   } else if (operatorSymbol == SYM_DIV) {
- //     constAtt = constAtt / literal;
- //   } else if (operatorSymbol == SYM_MOD) {
- //     constAtt = constAtt % literal;
- //   }
- // } else {
+    if(and(constFlag, doTheFolding)){
+      if (operatorSymbol == SYM_ASTERISK) {
+        sumFolding = sumFolding * constNew;
+      } else if (operatorSymbol == SYM_DIV) {
+        sumFolding = sumFolding / constNew;
+      } else if (operatorSymbol == SYM_MOD) {
+        sumFolding = sumFolding % constNew;
+      }
+
+    } else {
+
+      if(doTheFolding){
+        load_integer(sumFolding);
+        aweSum = currentTemporary();
+        awePart = previousTemporary();
+      } else {   
+        if (constFlag) {
+          load_integer(constNew);
+        }
+        aweSum = previousTemporary();
+        awePart = currentTemporary();
+      }
+
+
     if (operatorSymbol == SYM_ASTERISK) {
-      emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), 0, FCT_MULTU);
+      emitRFormat(OP_SPECIAL, aweSum, awePart, 0, FCT_MULTU);
       emitRFormat(OP_SPECIAL, 0, 0, previousTemporary(), FCT_MFLO);
 
     } else if (operatorSymbol == SYM_DIV) {
-      emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), 0, FCT_DIVU);
+      emitRFormat(OP_SPECIAL, aweSum, awePart, 0, FCT_DIVU);
       emitRFormat(OP_SPECIAL, 0, 0, previousTemporary(), FCT_MFLO);
 
     } else if (operatorSymbol == SYM_MOD) {
-      emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), 0, FCT_DIVU);
+      emitRFormat(OP_SPECIAL, aweSum, awePart, 0, FCT_DIVU);
       emitRFormat(OP_SPECIAL, 0, 0, previousTemporary(), FCT_MFHI);
     }
-   }
-   //  if (operatorSymbol == SYM_ASTERISK) {
-    //  load_integer(constAtt);
-  //    emitRFormat(OP_SPECIAL, 0, 0, currentTemporary(), FCT_MFLO);
-  //  } else if (operatorSymbol == SYM_DIV) {
-  //    load_integer(constAtt);
-  //    emitRFormat(OP_SPECIAL, 0, 0, currentTemporary(), FCT_MFLO);
-  //  } else if (operatorSymbol == SYM_MOD) {
-  //    load_integer(constAtt);
-  //    emitRFormat(OP_SPECIAL, 0, 0, currentTemporary(), FCT_MFHI);
-  //  }
-    tfree(1);
-    // constFlag = 0;
 
-// }
+    tfree(1);
+    doTheFolding = 0;
+    }
+  }
+
+  constFlag = doTheFolding;
+  if (doTheFolding) {
+    constNew = sumFolding;
+  }
   // assert: allocatedTemporaries == n + 1
 
   return ltype;
