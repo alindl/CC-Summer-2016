@@ -2380,7 +2380,14 @@ void load_integer(int value) {
       // and finally add the remaining 3 lsbs
       emitIFormat(OP_ADDIU, currentTemporary(), currentTemporary(), rightShift(leftShift(value, 29), 29));
     }
+  } else if (value > INT_MIN) {
+    load_integer(-value);
+    emitRFormat(OP_SPECIAL, REG_ZR, currentTemporary(), currentTemporary(), FCT_SUBU);
+
+
   } else {
+    talloc();
+
     // load largest positive 16-bit number with a single bit set: 2^14
     emitIFormat(OP_ADDIU, REG_ZR, currentTemporary(), twoToThePowerOf(14));
 
@@ -2814,11 +2821,18 @@ int gr_simpleExpression() {
   int operatorSymbol;
   int rtype;
 
+  int doTheFolding;
+  int sumFolding;
+  int aweSum;
+  int awePart;
+
+  doTheFolding = 0;
+
     // assert: n = allocatedTemporaries
 
     // optional: -
-    if (symbol == SYM_MINUS) {
-        sign = 1;
+  if (symbol == SYM_MINUS) {
+    sign = 1;
 
     mayBeINTMIN = 1;
     isINTMIN  = 0;
@@ -2839,6 +2853,11 @@ int gr_simpleExpression() {
 
   ltype = gr_term();
 
+    if (constFlag) {
+      doTheFolding = 1;
+      sumFolding = constNew;
+    }
+
   // assert: allocatedTemporaries == n + 1
 
   if (sign) {
@@ -2847,8 +2866,10 @@ int gr_simpleExpression() {
 
       ltype = INT_T;
     }
-
-    emitRFormat(OP_SPECIAL, REG_ZR, currentTemporary(), currentTemporary(), FCT_SUBU);
+    if (doTheFolding)
+      sumFolding = -sumFolding;
+    else
+      emitRFormat(OP_SPECIAL, REG_ZR, currentTemporary(), currentTemporary(), FCT_SUBU);
   }
 
   // + or -?
@@ -2861,65 +2882,121 @@ int gr_simpleExpression() {
 
     // assert: allocatedTemporaries == n + 2
 
-    if (operatorSymbol == SYM_PLUS) {
-      if (ltype == INTSTAR_T) {
-        if (rtype == INT_T)
-          // pointer arithmetic: factor of 2^2 of integer operand
-          emitLeftShiftBy(2);
-      } else if (rtype == INTSTAR_T)
-        typeWarning(ltype, rtype);
+    if(and(constFlag, doTheFolding)){
+      if (operatorSymbol == SYM_PLUS) {
+        if (ltype == INTSTAR_T) 
+          if (rtype == INT_T)
+            constNew = constNew << 2;
+          sumFolding = sumFolding + constNew;
 
-      emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), previousTemporary(), FCT_ADDU);
+      } else if (operatorSymbol == SYM_MINUS) {
 
-    } else if (operatorSymbol == SYM_MINUS) {
-      if (ltype != rtype)
-        typeWarning(ltype, rtype);
+        sumFolding = sumFolding - constNew;
+      }
+    } else {
+      if (doTheFolding) {
+        load_integer(sumFolding);
+        aweSum = currentTemporary();
+        awePart = previousTemporary();
+      } else {   
+        if (constFlag) {
+          load_integer(constNew);
+        }
+        aweSum = previousTemporary();
+        awePart = currentTemporary();
+      }
+      if (operatorSymbol == SYM_PLUS) {
+        if (ltype == INTSTAR_T)
+          if (rtype == INT_T)
+            emitLeftShiftReg(awePart, 2);
+        emitRFormat(OP_SPECIAL, aweSum, awePart,  previousTemporary(), FCT_ADDU); 
+      } else if (operatorSymbol == SYM_MINUS) {
+        emitRFormat(OP_SPECIAL, aweSum, awePart, previousTemporary(), FCT_SUBU);
+      }
 
-      emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), previousTemporary(), FCT_SUBU);
+
+      tfree(1);
+      doTheFolding = 0;
     }
-
-    tfree(1);
   }
 
-  // assert: allocatedTemporaries == n + 1
+  constFlag = doTheFolding;
+  if (doTheFolding) {
+    constNew = sumFolding;
+  }
 
-    return ltype;
+  return ltype;
 
 }
 
 int gr_shift() {
-    int ltype;
-    int operatorSymbol;
-    int rtype;
+  int ltype;
+  int operatorSymbol;
+  int rtype;
 
-    ltype = gr_simpleExpression();
+  int doTheFolding;
+  int sumFolding;
+  int aweSum;
+  int awePart;
 
-    // << or >> ?
-    if (isLeftOrRightShift()) {
-        operatorSymbol = symbol;
+  doTheFolding = 0;
 
-        getSymbol();
+  ltype = gr_simpleExpression();
 
-        rtype = gr_simpleExpression();
+  if(constFlag){
+    doTheFolding = 1;
+    sumFolding = constNew;
+  }
+  
+  // << or >> ?
+  if (isLeftOrRightShift()) {
+    operatorSymbol = symbol;
 
-        if (operatorSymbol == SYM_LS) {
-            if (ltype != rtype)
-                typeWarning(ltype, rtype);
-            else
-                emitRFormat(OP_SPECIAL, currentTemporary(), previousTemporary(), previousTemporary(), FCT_SLLV);
-        } else if (operatorSymbol == SYM_RS) {
-            if (ltype != rtype)
-                typeWarning(ltype, rtype);
-            else
-                emitRFormat(OP_SPECIAL, currentTemporary(), previousTemporary(), previousTemporary(), FCT_SRLV);
-        }
+    getSymbol();
 
-        tfree(1);
+    rtype = gr_simpleExpression();
+
+    if (ltype != INT_T)
+      typeWarning(ltype, rtype);
+    else if (rtype != INT_T)
+      typeWarning(ltype, rtype);
+
+
+  if (and(doTheFolding, constFlag)) {
+    if (operatorSymbol == SYM_LS)
+      sumFolding = sumFolding << constNew;
+    if (operatorSymbol == SYM_RS)
+      sumFolding = sumFolding >> constNew;
+  } else {
+      
+    if (doTheFolding) {
+      load_integer(sumFolding);
+      aweSum = currentTemporary();
+      awePart = previousTemporary();
+    } else {   
+      if (constFlag) {
+        load_integer(constNew);
+      }
+      aweSum = previousTemporary();
+      awePart = currentTemporary();
     }
-
-    // assert: allocatedTemporaries == n + 1
-
-    return ltype;
+        
+    if (operatorSymbol == SYM_LS)
+      emitRFormat(OP_SPECIAL, awePart, aweSum, previousTemporary(), FCT_SLLV);
+    if (operatorSymbol == SYM_RS)
+      emitRFormat(OP_SPECIAL, awePart, aweSum, previousTemporary(), FCT_SRLV);
+          
+    tfree(1);
+    doTheFolding = 0;
+    }
+  }
+  
+  constFlag = doTheFolding;
+  if (doTheFolding) {
+    constNew = sumFolding;
+  }
+  
+  return ltype;
 }
 
 
@@ -2928,9 +3005,21 @@ int gr_expression() {
   int operatorSymbol;
   int rtype;
 
+  int doTheFolding;
+  int sumFolding;
+  int aweSum;
+  int awePart;
+
+  doTheFolding = 0;
+
   // assert: n = allocatedTemporaries
 
     ltype = gr_shift();
+
+  if(constFlag){
+    doTheFolding = 1;
+    sumFolding = constNew;
+  }
 
   // assert: allocatedTemporaries == n + 1
 
@@ -2940,16 +3029,46 @@ int gr_expression() {
 
     getSymbol();
 
-        rtype = gr_shift();
+    rtype = gr_shift();
 
     // assert: allocatedTemporaries == n + 2
 
     if (ltype != rtype)
       typeWarning(ltype, rtype);
 
+    if(and(constFlag, doTheFolding)){
+      if (operatorSymbol == SYM_EQUALITY)
+        sumFolding = (sumFolding == constNew);
+      else if (operatorSymbol == SYM_NOTEQ)
+        sumFolding = (sumFolding != constNew);
+      else if (operatorSymbol == SYM_LT)
+        sumFolding = (sumFolding < constNew);
+      else if (operatorSymbol == SYM_GT)
+        sumFolding = (sumFolding > constNew);
+      else if (operatorSymbol == SYM_LEQ)
+        sumFolding = (sumFolding <= constNew);
+      else if (operatorSymbol == SYM_GEQ)
+        sumFolding = (sumFolding >= constNew);
+        
+    } else {
+
+      if (doTheFolding) {
+        load_integer(sumFolding);
+        aweSum = currentTemporary();
+        awePart = previousTemporary();
+      } else {   
+        if (constFlag) {
+          load_integer(constNew);
+        }
+        aweSum = previousTemporary();
+        awePart = currentTemporary();
+      }
+
+
+
     if (operatorSymbol == SYM_EQUALITY) {
       // subtract, if result = 0 then 1, else 0
-      emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), previousTemporary(), FCT_SUBU);
+      emitRFormat(OP_SPECIAL, aweSum, awePart, previousTemporary(), FCT_SUBU);
 
       tfree(1);
 
@@ -2960,7 +3079,7 @@ int gr_expression() {
 
     } else if (operatorSymbol == SYM_NOTEQ) {
       // subtract, if result = 0 then 0, else 1
-      emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), previousTemporary(), FCT_SUBU);
+      emitRFormat(OP_SPECIAL, aweSum, awePart, previousTemporary(), FCT_SUBU);
 
       tfree(1);
 
@@ -2971,19 +3090,19 @@ int gr_expression() {
 
     } else if (operatorSymbol == SYM_LT) {
       // set to 1 if a < b, else 0
-      emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), previousTemporary(), FCT_SLT);
+      emitRFormat(OP_SPECIAL, aweSum, awePart, previousTemporary(), FCT_SLT);
 
       tfree(1);
 
     } else if (operatorSymbol == SYM_GT) {
       // set to 1 if b < a, else 0
-      emitRFormat(OP_SPECIAL, currentTemporary(), previousTemporary(), previousTemporary(), FCT_SLT);
+      emitRFormat(OP_SPECIAL, awePart, aweSum, previousTemporary(), FCT_SLT);
 
       tfree(1);
 
     } else if (operatorSymbol == SYM_LEQ) {
       // if b < a set 0, else 1
-      emitRFormat(OP_SPECIAL, currentTemporary(), previousTemporary(), previousTemporary(), FCT_SLT);
+      emitRFormat(OP_SPECIAL, awePart, aweSum, previousTemporary(), FCT_SLT);
 
       tfree(1);
 
@@ -2994,7 +3113,7 @@ int gr_expression() {
 
     } else if (operatorSymbol == SYM_GEQ) {
       // if a < b set 0, else 1
-      emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), previousTemporary(), FCT_SLT);
+      emitRFormat(OP_SPECIAL, aweSum, awePart, previousTemporary(), FCT_SLT);
 
       tfree(1);
 
@@ -3003,9 +3122,10 @@ int gr_expression() {
       emitIFormat(OP_BEQ, REG_ZR, REG_ZR, 2);
       emitIFormat(OP_ADDIU, REG_ZR, currentTemporary(), 0);
     }
+
+    doTheFolding = 0;    
   }
 
-  // assert: allocatedTemporaries == n + 1
 
   return ltype;
 }
@@ -3654,6 +3774,15 @@ void gr_cstar() {
 // -----------------------------------------------------------------
 // ------------------------ MACHINE CODE LIBRARY -------------------
 // -----------------------------------------------------------------
+
+void emitLeftShiftReg(int reg, int b) {
+  // assert: 0 <= b < 15
+
+  // load multiplication factor less than 2^15 to avoid sign extension
+  emitIFormat(OP_ADDIU, REG_ZR, nextTemporary(), twoToThePowerOf(b));
+  emitRFormat(OP_SPECIAL, reg, nextTemporary(), 0, FCT_MULTU);
+  emitRFormat(OP_SPECIAL, 0, 0, reg, FCT_MFLO);
+}
 
 void emitLeftShiftBy(int b) {
   // assert: 0 <= b < 15
