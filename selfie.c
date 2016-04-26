@@ -2753,7 +2753,7 @@ int gr_term() {
       emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), 0, FCT_DIVU);
       emitRFormat(OP_SPECIAL, 0, 0, previousTemporary(), FCT_MFHI);
     }
-   }
+  //  }
    //  if (operatorSymbol == SYM_ASTERISK) {
     //  load_integer(constAtt);
   //    emitRFormat(OP_SPECIAL, 0, 0, currentTemporary(), FCT_MFLO);
