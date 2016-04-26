@@ -345,8 +345,8 @@ void initScanner () {
 
     character = CHAR_EOF;
     symbol    = SYM_EOF;
-    constAtt = malloc(maxIntegerLength + 1); //TODO: New Global variables
-    constFlag = malloc(1);
+    // constAtt = malloc(maxIntegerLength + 1); //TODO: New Global variables
+    // constFlag = malloc(1);
 }
 
 void resetScanner() {
@@ -2724,7 +2724,7 @@ int gr_term() {
 
     rtype = gr_factor();
 
-    // load_integer(literal);
+    load_integer(literal);
     //TODO: Das irgendwo spaeter verwenden
 
     // assert: allocatedTemporaries == n + 2
@@ -2732,15 +2732,15 @@ int gr_term() {
     if (ltype != rtype)
       typeWarning(ltype, rtype);
 
- if(constFlag == 2){
-   if (operatorSymbol == SYM_ASTERISK) {
-     constAtt = constAtt * literal;
-   } else if (operatorSymbol == SYM_DIV) {
-     constAtt = constAtt / literal;
-   } else if (operatorSymbol == SYM_MOD) {
-     constAtt = constAtt % literal;
-   }
- } else {
+ // if(constFlag == 2){
+  //  if (operatorSymbol == SYM_ASTERISK) {
+ //     constAtt = constAtt * literal;
+ //   } else if (operatorSymbol == SYM_DIV) {
+ //     constAtt = constAtt / literal;
+ //   } else if (operatorSymbol == SYM_MOD) {
+ //     constAtt = constAtt % literal;
+ //   }
+ // } else {
     if (operatorSymbol == SYM_ASTERISK) {
       emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), 0, FCT_MULTU);
       emitRFormat(OP_SPECIAL, 0, 0, previousTemporary(), FCT_MFLO);
@@ -2754,16 +2754,16 @@ int gr_term() {
       emitRFormat(OP_SPECIAL, 0, 0, previousTemporary(), FCT_MFHI);
     }
    }
-   if (operatorSymbol == SYM_ASTERISK) {
-     load_integer(constAtt);
-     emitRFormat(OP_SPECIAL, 0, 0, currentTemporary(), FCT_MFLO);
-   } else if (operatorSymbol == SYM_DIV) {
-     load_integer(constAtt);
-     emitRFormat(OP_SPECIAL, 0, 0, currentTemporary(), FCT_MFLO);
-   } else if (operatorSymbol == SYM_MOD) {
-     load_integer(constAtt);
-     emitRFormat(OP_SPECIAL, 0, 0, currentTemporary(), FCT_MFHI);
-   }
+   //  if (operatorSymbol == SYM_ASTERISK) {
+    //  load_integer(constAtt);
+  //    emitRFormat(OP_SPECIAL, 0, 0, currentTemporary(), FCT_MFLO);
+  //  } else if (operatorSymbol == SYM_DIV) {
+  //    load_integer(constAtt);
+  //    emitRFormat(OP_SPECIAL, 0, 0, currentTemporary(), FCT_MFLO);
+  //  } else if (operatorSymbol == SYM_MOD) {
+  //    load_integer(constAtt);
+  //    emitRFormat(OP_SPECIAL, 0, 0, currentTemporary(), FCT_MFHI);
+  //  }
     tfree(1);
     constFlag = 0;
 
