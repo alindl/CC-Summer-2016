@@ -292,8 +292,8 @@ int* integer    = (int*) 0; // stores scanned integer as string
 int* string     = (int*) 0; // stores scanned string
 
 int literal = 0; // stores numerical value of scanned integer or character
-int foldConst;
-int constFlag = 0; //TODO: New Global variables
+
+int x;
 
 int initialValue = 0; // stores initial value of variable definitions
 
@@ -461,11 +461,11 @@ void help_procedure_prologue(int localVariables);
 void help_procedure_epilogue(int parameters);
 
 int  gr_call(int* procedure);
-int  gr_factor();
-int  gr_term();
-int  gr_simpleExpression();
-int  gr_shift();
-int  gr_expression(int constant);
+int  gr_factor(int* notGlobal);
+int  gr_term(int* notGlobal);
+int  gr_simpleExpression(int* notGlobal);
+int  gr_shift(int* notGlobal);
+int  gr_expression();
 void gr_while();
 void gr_if();
 void gr_return(int returnType);
@@ -2375,6 +2375,40 @@ void load_integer(int value) {
       // and finally add the remaining 3 lsbs
       emitIFormat(OP_ADDIU, currentTemporary(), currentTemporary(), rightShift(leftShift(value, 29), 29));
     }
+
+
+  } else if (value < 0) {
+    if (-value < twoToThePowerOf(15))
+      // ADDIU can only load numbers < 2^15 without sign extension
+      emitIFormat(OP_ADDIU, REG_ZR, currentTemporary(), -value);
+    else if (-value < twoToThePowerOf(28)) {
+      // load 14 msbs of a 28-bit number first
+      emitIFormat(OP_ADDIU, REG_ZR, currentTemporary(), rightShift(-value, 14));
+
+      // shift left by 14 bits
+      emitLeftShiftBy(14);
+
+      // and finally add 14 lsbs
+      emitIFormat(OP_ADDIU, currentTemporary(), currentTemporary(), rightShift(leftShift(-value, 18), 18));
+    } else {
+      // load 14 msbs of a 31-bit number first
+      emitIFormat(OP_ADDIU, REG_ZR, currentTemporary(), rightShift(-value, 17));
+
+      emitLeftShiftBy(14);
+
+      // then add the next 14 msbs
+      emitIFormat(OP_ADDIU, currentTemporary(), currentTemporary(), rightShift(leftShift(-value, 15), 18));
+
+      emitLeftShiftBy(3);
+
+      // and finally add the remaining 3 lsbs
+      emitIFormat(OP_ADDIU, currentTemporary(), currentTemporary(), rightShift(leftShift(-value, 29), 29));
+    }
+
+    emitRFormat(OP_SPECIAL, REG_ZR, currentTemporary(), currentTemporary(), FCT_SUBU);
+
+
+
   } else {
     // load largest positive 16-bit number with a single bit set: 2^14
     emitIFormat(OP_ADDIU, REG_ZR, currentTemporary(), twoToThePowerOf(14));
@@ -2492,7 +2526,7 @@ int gr_call(int* procedure) {
   // assert: allocatedTemporaries == 0
 
   if (isExpression()) {
-    gr_expression(1);
+    gr_expression();
 
     // TODO: check if types/number of parameters is correct
 
@@ -2505,7 +2539,7 @@ int gr_call(int* procedure) {
     while (symbol == SYM_COMMA) {
       getSymbol();
 
-      gr_expression(1);
+      gr_expression();
 
       // push more parameters onto stack
       emitIFormat(OP_ADDIU, REG_SP, REG_SP, -WORDSIZE);
@@ -2541,7 +2575,7 @@ int gr_call(int* procedure) {
   return type;
 }
 
-int gr_factor() {
+int gr_factor(int* notGlobal) {
   int hasCast;
   int cast;
   int type;
@@ -2552,7 +2586,7 @@ int gr_factor() {
 
   hasCast = 0;
 
-  constFlag = 0;
+  *(notGlobal + 1) = 0;
 
   type = INT_T;
 
@@ -2583,7 +2617,7 @@ int gr_factor() {
 
     // not a cast: "(" expression ")"
     } else {
-      type = gr_expression(0);
+      type = gr_expression();
 
       if (symbol == SYM_RPARENTHESIS)
         getSymbol();
@@ -2610,7 +2644,7 @@ int gr_factor() {
     } else if (symbol == SYM_LPARENTHESIS) {
       getSymbol();
 
-      type = gr_expression(1);
+      type = gr_expression();
 
       if (symbol == SYM_RPARENTHESIS)
         getSymbol();
@@ -2656,8 +2690,8 @@ int gr_factor() {
      //load_integer(literal);
     //TODO: delay integer load
 
-    constFlag = 1;
-    foldConst = literal;
+    *(notGlobal + 1) = 1;
+    *(notGlobal) = literal;
 
     getSymbol();
 
@@ -2685,7 +2719,7 @@ int gr_factor() {
   } else if (symbol == SYM_LPARENTHESIS) {
     getSymbol();
 
-    type = gr_expression(1);
+    type = gr_expression();
 
     if (symbol == SYM_RPARENTHESIS)
       getSymbol();
@@ -2712,25 +2746,25 @@ int and(int one, int two){
   return 0;
 }
 
-int gr_term() {
+int gr_term(int* notGlobal) {
   int ltype;
   int operatorSymbol;
   int rtype;
 
   int doTheFolding;
   int sumFolding;
-  int aweSum;
-  int awePart;
+  int sourceRegisterOne;
+  int sourceRegisterTwo;
 
   // assert: n = allocatedTemporaries
   
   doTheFolding = 0;
 
-  ltype = gr_factor();
+  ltype = gr_factor(notGlobal);
 
-  if(constFlag){
+  if(*(notGlobal + 1)){
     doTheFolding = 1;
-    sumFolding = foldConst;
+    sumFolding = *(notGlobal);
   }
   
   // assert: allocatedTemporaries == n + 1
@@ -2741,47 +2775,47 @@ int gr_term() {
 
     getSymbol();
 
-    rtype = gr_factor();
+    rtype = gr_factor(notGlobal);
 
     // assert: allocatedTemporaries == n + 2
 
     if (ltype != rtype)
       typeWarning(ltype, rtype);
 
-    if(and(constFlag, doTheFolding)){
+    if(and(*(notGlobal + 1), doTheFolding)){
       if (operatorSymbol == SYM_ASTERISK) {
-        sumFolding = sumFolding * foldConst;
+        sumFolding = sumFolding * *(notGlobal);
       } else if (operatorSymbol == SYM_DIV) {
-        sumFolding = sumFolding / foldConst;
+        sumFolding = sumFolding / *(notGlobal);
       } else if (operatorSymbol == SYM_MOD) {
-        sumFolding = sumFolding % foldConst;
+        sumFolding = sumFolding % *(notGlobal);
       }
 
     } else {
 
       if(doTheFolding){
         load_integer(sumFolding);
-        aweSum = currentTemporary();
-        awePart = previousTemporary();
+        sourceRegisterOne = currentTemporary();
+        sourceRegisterTwo = previousTemporary();
       } else {   
-        if (constFlag) {
-          load_integer(foldConst);
+        if (*(notGlobal + 1)) {
+          load_integer(*(notGlobal));
         }
-        aweSum = previousTemporary();
-        awePart = currentTemporary();
+        sourceRegisterOne = previousTemporary();
+        sourceRegisterTwo = currentTemporary();
       }
 
 
     if (operatorSymbol == SYM_ASTERISK) {
-      emitRFormat(OP_SPECIAL, aweSum, awePart, 0, FCT_MULTU);
+      emitRFormat(OP_SPECIAL, sourceRegisterOne, sourceRegisterTwo, 0, FCT_MULTU);
       emitRFormat(OP_SPECIAL, 0, 0, previousTemporary(), FCT_MFLO);
 
     } else if (operatorSymbol == SYM_DIV) {
-      emitRFormat(OP_SPECIAL, aweSum, awePart, 0, FCT_DIVU);
+      emitRFormat(OP_SPECIAL, sourceRegisterOne, sourceRegisterTwo, 0, FCT_DIVU);
       emitRFormat(OP_SPECIAL, 0, 0, previousTemporary(), FCT_MFLO);
 
     } else if (operatorSymbol == SYM_MOD) {
-      emitRFormat(OP_SPECIAL, aweSum, awePart, 0, FCT_DIVU);
+      emitRFormat(OP_SPECIAL, sourceRegisterOne, sourceRegisterTwo, 0, FCT_DIVU);
       emitRFormat(OP_SPECIAL, 0, 0, previousTemporary(), FCT_MFHI);
     }
 
@@ -2790,16 +2824,16 @@ int gr_term() {
     }
   }
 
-  constFlag = doTheFolding;
+  *(notGlobal + 1) = doTheFolding;
   if (doTheFolding) {
-    foldConst = sumFolding;
+    *(notGlobal) = sumFolding;
   }
   // assert: allocatedTemporaries == n + 1
 
   return ltype;
 }
 
-int gr_simpleExpression() {
+int gr_simpleExpression(int* notGlobal) {
   int sign;
   int ltype;
   int operatorSymbol;
@@ -2807,14 +2841,14 @@ int gr_simpleExpression() {
 
   int doTheFolding;
   int sumFolding;
-  int aweSum;
-  int awePart;
+  int sourceRegisterOne;
+  int sourceRegisterTwo;
 
   doTheFolding = 0;
 
     // assert: n = allocatedTemporaries
 
-    // optional: -
+    // optional: -(int* notGlobalPara)
   if (symbol == SYM_MINUS) {
     sign = 1;
 
@@ -2835,11 +2869,11 @@ int gr_simpleExpression() {
   } else
     sign = 0;
 
-  ltype = gr_term();
+  ltype = gr_term(notGlobal);
 
-    if (constFlag) {
+    if (*(notGlobal + 1)) {
       doTheFolding = 1;
-      sumFolding = foldConst;
+      sumFolding = *(notGlobal);
     }
 
   // assert: allocatedTemporaries == n + 1
@@ -2851,7 +2885,8 @@ int gr_simpleExpression() {
       ltype = INT_T;
     }
     if (doTheFolding)
-      sumFolding = -sumFolding;
+      sumFolding = 0 - sumFolding;
+
     else
       emitRFormat(OP_SPECIAL, REG_ZR, currentTemporary(), currentTemporary(), FCT_SUBU);
   }
@@ -2862,46 +2897,46 @@ int gr_simpleExpression() {
 
     getSymbol();
 
-    rtype = gr_term();
+    rtype = gr_term(notGlobal);
 
     // assert: allocatedTemporaries == n + 2
 
-    if(and(constFlag, doTheFolding)){
+    if(and(*(notGlobal + 1), doTheFolding)){
       if (operatorSymbol == SYM_PLUS) {
         if (ltype == INTSTAR_T) 
           if (rtype == INT_T)
-            foldConst = foldConst << 2;
-          sumFolding = sumFolding + foldConst;
+            *(notGlobal) = *(notGlobal) << 2;
+          sumFolding = sumFolding + *(notGlobal);
 
       } else if (operatorSymbol == SYM_MINUS) {
 
-        sumFolding = sumFolding - foldConst;
+        sumFolding = sumFolding - *(notGlobal);
       }
     } else {
       if (doTheFolding) {
         load_integer(sumFolding);
-        aweSum = currentTemporary();
-        awePart = previousTemporary();
+        sourceRegisterOne = currentTemporary();
+        sourceRegisterTwo = previousTemporary();
       } else {   
-        if (constFlag) {
-          load_integer(foldConst);
+        if (*(notGlobal + 1)) {
+          load_integer(*(notGlobal));
         }
-        aweSum = previousTemporary();
-        awePart = currentTemporary();
+        sourceRegisterOne = previousTemporary();
+        sourceRegisterTwo = currentTemporary();
       }
       if (operatorSymbol == SYM_PLUS) {
         if (ltype == INTSTAR_T) {
           if (rtype == INT_T)
-            emitLeftShiftReg(awePart, 2);
+            emitLeftShiftReg(sourceRegisterTwo, 2);
          } else if (rtype == INTSTAR_T)
            typeWarning(ltype, rtype);
 
-        emitRFormat(OP_SPECIAL, aweSum, awePart,  previousTemporary(), FCT_ADDU); 
+        emitRFormat(OP_SPECIAL, sourceRegisterOne, sourceRegisterTwo,  previousTemporary(), FCT_ADDU); 
       } else if (operatorSymbol == SYM_MINUS) {
         if (ltype != rtype)
           typeWarning(ltype, rtype);
 
-        emitRFormat(OP_SPECIAL, aweSum, awePart, previousTemporary(), FCT_SUBU);
+        emitRFormat(OP_SPECIAL, sourceRegisterOne, sourceRegisterTwo, previousTemporary(), FCT_SUBU);
       }
 
       tfree(1);
@@ -2909,32 +2944,32 @@ int gr_simpleExpression() {
     }
   }
 
-  constFlag = doTheFolding;
+  *(notGlobal + 1) = doTheFolding;
   if (doTheFolding) {
-    foldConst = sumFolding;
+    *(notGlobal) = sumFolding;
   }
 
   return ltype;
 
 }
 
-int gr_shift() {
+int gr_shift(int* notGlobal) {
   int ltype;
   int operatorSymbol;
   int rtype;
 
   int doTheFolding;
   int sumFolding;
-  int aweSum;
-  int awePart;
+  int sourceRegisterOne;
+  int sourceRegisterTwo;
 
   doTheFolding = 0;
 
-  ltype = gr_simpleExpression();
+  ltype = gr_simpleExpression(notGlobal);
 
-  if(constFlag){
+  if(*(notGlobal + 1)){
     doTheFolding = 1;
-    sumFolding = foldConst;
+    sumFolding = *(notGlobal);
   }
   
   // << or >> ?
@@ -2943,7 +2978,7 @@ int gr_shift() {
 
     getSymbol();
 
-    rtype = gr_simpleExpression();
+    rtype = gr_simpleExpression(notGlobal);
 
     if (ltype != INT_T)
       typeWarning(ltype, rtype);
@@ -2951,63 +2986,67 @@ int gr_shift() {
       typeWarning(ltype, rtype);
 
 
-  if (and(doTheFolding, constFlag)) {
+  if (and(doTheFolding, *(notGlobal + 1))) {
     if (operatorSymbol == SYM_LS)
-      sumFolding = sumFolding << foldConst;
+      sumFolding = sumFolding << *(notGlobal);
     if (operatorSymbol == SYM_RS)
-      sumFolding = sumFolding >> foldConst;
+      sumFolding = sumFolding >> *(notGlobal);
   } else {
       
     if (doTheFolding) {
       load_integer(sumFolding);
-      aweSum = currentTemporary();
-      awePart = previousTemporary();
+      sourceRegisterOne = currentTemporary();
+      sourceRegisterTwo = previousTemporary();
     } else {   
-      if (constFlag) {
-        load_integer(foldConst);
+      if (*(notGlobal + 1)) {
+        load_integer(*(notGlobal));
       }
-      aweSum = previousTemporary();
-      awePart = currentTemporary();
+      sourceRegisterOne = previousTemporary();
+      sourceRegisterTwo = currentTemporary();
     }
         
     if (operatorSymbol == SYM_LS)
-      emitRFormat(OP_SPECIAL, awePart, aweSum, previousTemporary(), FCT_SLLV);
+      emitRFormat(OP_SPECIAL, sourceRegisterTwo, sourceRegisterOne, previousTemporary(), FCT_SLLV);
     if (operatorSymbol == SYM_RS)
-      emitRFormat(OP_SPECIAL, awePart, aweSum, previousTemporary(), FCT_SRLV);
+      emitRFormat(OP_SPECIAL, sourceRegisterTwo, sourceRegisterOne, previousTemporary(), FCT_SRLV);
           
     tfree(1);
     doTheFolding = 0;
     }
   }
   
-  constFlag = doTheFolding;
+  *(notGlobal + 1) = doTheFolding;
   if (doTheFolding) {
-    foldConst = sumFolding;
+    *(notGlobal) = sumFolding;
   }
   
   return ltype;
 }
 
 
-int gr_expression(int constant) {
+int gr_expression() {
   int ltype;
   int operatorSymbol;
   int rtype;
 
   int doTheFolding;
   int sumFolding;
-  int aweSum;
-  int awePart;
+  int sourceRegisterOne;
+  int sourceRegisterTwo;
+  int* notGlobal;
+  notGlobal = malloc(2 * SIZEOFINT);
+  *notGlobal = 0;
+  *(notGlobal + 1) = 0;
 
   doTheFolding = 0;
 
   // assert: n = allocatedTemporaries
 
-  ltype = gr_shift();
+  ltype = gr_shift(notGlobal);
 
-  if(constFlag){
+  if(*(notGlobal + 1)){
     doTheFolding = 1;
-    sumFolding = foldConst;
+    sumFolding = *(notGlobal);
   }
 
   // assert: allocatedTemporaries == n + 1
@@ -3018,46 +3057,46 @@ int gr_expression(int constant) {
 
     getSymbol();
 
-    rtype = gr_shift();
+    rtype = gr_shift(notGlobal);
 
     // assert: allocatedTemporaries == n + 2
 
     if (ltype != rtype)
       typeWarning(ltype, rtype);
 
-    if(and(constFlag, doTheFolding)){
+    if(and(*(notGlobal + 1), doTheFolding)){
       if (operatorSymbol == SYM_EQUALITY)
-        sumFolding = (sumFolding == foldConst);
+        sumFolding = (sumFolding == *(notGlobal));
       else if (operatorSymbol == SYM_NOTEQ)
-        sumFolding = (sumFolding != foldConst);
+        sumFolding = (sumFolding != *(notGlobal));
       else if (operatorSymbol == SYM_LT)
-        sumFolding = (sumFolding < foldConst);
+        sumFolding = (sumFolding < *(notGlobal));
       else if (operatorSymbol == SYM_GT)
-        sumFolding = (sumFolding > foldConst);
+        sumFolding = (sumFolding > *(notGlobal));
       else if (operatorSymbol == SYM_LEQ)
-        sumFolding = (sumFolding <= foldConst);
+        sumFolding = (sumFolding <= *(notGlobal));
       else if (operatorSymbol == SYM_GEQ)
-        sumFolding = (sumFolding >= foldConst);
-        
+        sumFolding = (sumFolding >= *(notGlobal));
+
     } else {
 
       if (doTheFolding) {
         load_integer(sumFolding);
-        aweSum = currentTemporary();
-        awePart = previousTemporary();
+        sourceRegisterOne = currentTemporary();
+        sourceRegisterTwo = previousTemporary();
       } else {   
-        if (constFlag) {
-          load_integer(foldConst);
+        if (*(notGlobal + 1)) {
+          load_integer(*(notGlobal));
         }
-        aweSum = previousTemporary();
-        awePart = currentTemporary();
+        sourceRegisterOne = previousTemporary();
+        sourceRegisterTwo = currentTemporary();
       }
 
 
 
     if (operatorSymbol == SYM_EQUALITY) {
       // subtract, if result = 0 then 1, else 0
-      emitRFormat(OP_SPECIAL, aweSum, awePart, previousTemporary(), FCT_SUBU);
+      emitRFormat(OP_SPECIAL, sourceRegisterOne, sourceRegisterTwo, previousTemporary(), FCT_SUBU);
 
       tfree(1);
 
@@ -3068,7 +3107,7 @@ int gr_expression(int constant) {
 
     } else if (operatorSymbol == SYM_NOTEQ) {
       // subtract, if result = 0 then 0, else 1
-      emitRFormat(OP_SPECIAL, aweSum, awePart, previousTemporary(), FCT_SUBU);
+      emitRFormat(OP_SPECIAL, sourceRegisterOne, sourceRegisterTwo, previousTemporary(), FCT_SUBU);
 
       tfree(1);
 
@@ -3079,19 +3118,19 @@ int gr_expression(int constant) {
 
     } else if (operatorSymbol == SYM_LT) {
       // set to 1 if a < b, else 0
-      emitRFormat(OP_SPECIAL, aweSum, awePart, previousTemporary(), FCT_SLT);
+      emitRFormat(OP_SPECIAL, sourceRegisterOne, sourceRegisterTwo, previousTemporary(), FCT_SLT);
 
       tfree(1);
 
     } else if (operatorSymbol == SYM_GT) {
       // set to 1 if b < a, else 0
-      emitRFormat(OP_SPECIAL, awePart, aweSum, previousTemporary(), FCT_SLT);
+      emitRFormat(OP_SPECIAL, sourceRegisterTwo, sourceRegisterOne, previousTemporary(), FCT_SLT);
 
       tfree(1);
 
     } else if (operatorSymbol == SYM_LEQ) {
       // if b < a set 0, else 1
-      emitRFormat(OP_SPECIAL, awePart, aweSum, previousTemporary(), FCT_SLT);
+      emitRFormat(OP_SPECIAL, sourceRegisterTwo, sourceRegisterOne, previousTemporary(), FCT_SLT);
 
       tfree(1);
 
@@ -3102,7 +3141,7 @@ int gr_expression(int constant) {
 
     } else if (operatorSymbol == SYM_GEQ) {
       // if a < b set 0, else 1
-      emitRFormat(OP_SPECIAL, aweSum, awePart, previousTemporary(), FCT_SLT);
+      emitRFormat(OP_SPECIAL, sourceRegisterOne, sourceRegisterTwo, previousTemporary(), FCT_SLT);
 
       tfree(1);
 
@@ -3115,15 +3154,11 @@ int gr_expression(int constant) {
     doTheFolding = 0;    
     }
   }
-  if (constant) {
+  
     if (doTheFolding)
       load_integer(sumFolding);
-    constFlag = 0;
-  } else {
-    constFlag = doTheFolding;
-    if (doTheFolding)
-      foldConst = sumFolding;
-  }
+    *(notGlobal + 1) = 0;
+ 
 
   return ltype;
 }
@@ -3145,7 +3180,7 @@ void gr_while() {
     if (symbol == SYM_LPARENTHESIS) {
       getSymbol();
 
-      gr_expression(1);
+      gr_expression();
 
       // do not know where to branch, fixup later
       brForwardToEnd = binaryLength;
@@ -3206,7 +3241,7 @@ void gr_if() {
     if (symbol == SYM_LPARENTHESIS) {
       getSymbol();
 
-      gr_expression(1);
+      gr_expression();
 
       // if the "if" case is not true, we jump to "else" (if provided)
       brForwardToElseOrEnd = binaryLength;
@@ -3294,7 +3329,7 @@ void gr_return(int returnType) {
 
   // optional: expression
   if (symbol != SYM_SEMICOLON) {
-    type = gr_expression(1);
+    type = gr_expression();
 
     if (returnType == VOID_T)
       typeWarning(type, returnType);
@@ -3352,7 +3387,7 @@ void gr_statement() {
       if (symbol == SYM_ASSIGN) {
         getSymbol();
 
-        rtype = gr_expression(1);
+        rtype = gr_expression();
 
         if (rtype != INT_T)
           typeWarning(INT_T, rtype);
@@ -3372,7 +3407,7 @@ void gr_statement() {
     } else if (symbol == SYM_LPARENTHESIS) {
       getSymbol();
 
-      ltype = gr_expression(1);
+      ltype = gr_expression();
 
       if (ltype != INTSTAR_T)
         typeWarning(INTSTAR_T, ltype);
@@ -3384,7 +3419,7 @@ void gr_statement() {
         if (symbol == SYM_ASSIGN) {
           getSymbol();
 
-          rtype = gr_expression(1);
+          rtype = gr_expression();
 
           if (rtype != INT_T)
             typeWarning(INT_T, rtype);
@@ -3432,7 +3467,7 @@ void gr_statement() {
 
       getSymbol();
 
-      rtype = gr_expression(1);
+      rtype = gr_expression();
 
       if (ltype != rtype)
         typeWarning(ltype, rtype);
@@ -6929,16 +6964,31 @@ int main(int argc, int* argv) {
     //assignment00
     print((int*)"This is BernAnAn CzuLiPe Selfie");
     println();
-    //assignment00
+
+   // x = 1;
+
     //println();
-    //print((int*) "Input is ");
-    //print(itoa( 4,string_buffer,10,0,0));
-    //println();
-    //print((int*) ">> is ");
-    //print(itoa( 4 >> 1,string_buffer,10,0,0));
-    //println();
-    //print((int*) "<< is ");
-    //print(itoa( 4 << 1,string_buffer,10,0,0));
+   // print((int*) "x is: ");
+   // print(itoa(x,string_buffer,10,0,0));
+
+   // println();
+   // print((int*) "1 + 1 + 1 + 4242 + x: ");
+   // print(itoa( (1 + 1 + 1 + 4242 + x) ,string_buffer,10,0,0));
+    //in selfie1.s if your search for 4245 if shows up once .. 
+    //that's the folding sum being pushed ob the stack
+
+   // println();
+   // print((int*) "x + 1 + 1 + 1 + 4242: ");
+   // print(itoa( (x + 1 + 1 + 1 + 4242),string_buffer,10,0,0));
+    //in selfie1.s if your search for 4242 if shows up once .. 
+    //because the first addition constant folded, it doesn't show up in assembly
+    //but because of the second addition it did because this doesn't constant fold
+
+   // println();
+   // print((int*) "-1 * 5: ");
+   // print(itoa( -1 * (5  + 5),string_buffer,10,0,0));
+
+
     //println();
     //println();
 
