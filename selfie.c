@@ -287,13 +287,12 @@ int maxStringLength     = 128; // maximum number of characters in a string
 // ------------------------ GLOBAL VARIABLES -----------------------
 
 int lineNumber = 1; // current Line Number for error reporting
-
 int* identifier = (int*) 0; // stores scanned identifier as string
 int* integer    = (int*) 0; // stores scanned integer as string
 int* string     = (int*) 0; // stores scanned string
 
 int literal = 0; // stores numerical value of scanned integer or character
-int foldConst = 0;
+int foldConst;
 int constFlag = 0; //TODO: New Global variables
 
 int initialValue = 0; // stores initial value of variable definitions
@@ -420,7 +419,6 @@ int LIBRARY_TABLE = 3;
 int* global_symbol_table  = (int*) 0;
 int* local_symbol_table   = (int*) 0;
 int* library_symbol_table = (int*) 0;
-
 // ------------------------- INITIALIZATION ------------------------
 
 void resetSymbolTables() {
@@ -642,8 +640,8 @@ int* OPCODES; // array of strings representing MIPS opcodes
 
 // int FCT_NOP     = 0;
 int FCT_SLL     = 0;
-int FCT_SLLV    = 2;
-int FCT_SRL     = 4;
+int FCT_SRL     = 2;
+int FCT_SLLV    = 4;
 int FCT_SRLV    = 6;
 int FCT_JR      = 8;
 int FCT_SYSCALL = 12;
@@ -731,7 +729,7 @@ void selfie_load();
 
 // ------------------------ GLOBAL CONSTANTS -----------------------
 
-int maxBinaryLength = 131072; // 128KB
+int maxBinaryLength = 262144; // 256KB
 
 // ------------------------ GLOBAL VARIABLES -----------------------
 
@@ -1901,34 +1899,34 @@ int getSymbol() {
     symbol = SYM_COMMA;
 
   } else if(character == CHAR_LT) {
-         	getCharacter();
+    getCharacter();
 
-          if (character == CHAR_EQUAL) {
-            getCharacter();
+    if (character == CHAR_EQUAL) {
+      getCharacter();
 
-            symbol = SYM_LEQ;
+      symbol = SYM_LEQ;
 
-          } else if(character == CHAR_LT) {
-            getCharacter();
+    } else if(character == CHAR_LT) {
+      getCharacter();
 
-            symbol = SYM_LS;
-          } else
-            symbol = SYM_LT;
+      symbol = SYM_LS;
+    } else
+      symbol = SYM_LT;
 
   } else if(character == CHAR_GT) {
-         	getCharacter();
+    getCharacter();
 
 
-          if (character == CHAR_EQUAL) {
-            getCharacter();
+    if (character == CHAR_EQUAL) {
+      getCharacter();
 
-            symbol = SYM_GEQ;
-          }else if(character == CHAR_GT){
-            getCharacter();
+      symbol = SYM_GEQ;
+    }else if(character == CHAR_GT){
+      getCharacter();
 
-            symbol = SYM_RS;
-          } else
-            symbol = SYM_GT;
+      symbol = SYM_RS;
+    } else
+      symbol = SYM_GT;
 
   } else if (character == CHAR_EXCLAMATION) {
     getCharacter();
@@ -2377,14 +2375,7 @@ void load_integer(int value) {
       // and finally add the remaining 3 lsbs
       emitIFormat(OP_ADDIU, currentTemporary(), currentTemporary(), rightShift(leftShift(value, 29), 29));
     }
-  } else if (value > INT_MIN) {
-    load_integer(-value);
-    emitRFormat(OP_SPECIAL, REG_ZR, currentTemporary(), currentTemporary(), FCT_SUBU);
-
-
   } else {
-    talloc();
-
     // load largest positive 16-bit number with a single bit set: 2^14
     emitIFormat(OP_ADDIU, REG_ZR, currentTemporary(), twoToThePowerOf(14));
 
@@ -2741,8 +2732,6 @@ int gr_term() {
     doTheFolding = 1;
     sumFolding = foldConst;
   }
-  // TODO: Das irgendwo spaeter verwenden
-
   
   // assert: allocatedTemporaries == n + 1
 
@@ -2753,8 +2742,6 @@ int gr_term() {
     getSymbol();
 
     rtype = gr_factor();
-
-    //TODO: Das irgendwo spaeter verwenden
 
     // assert: allocatedTemporaries == n + 2
 
@@ -2903,14 +2890,19 @@ int gr_simpleExpression() {
         awePart = currentTemporary();
       }
       if (operatorSymbol == SYM_PLUS) {
-        if (ltype == INTSTAR_T)
+        if (ltype == INTSTAR_T) {
           if (rtype == INT_T)
             emitLeftShiftReg(awePart, 2);
+         } else if (rtype == INTSTAR_T)
+           typeWarning(ltype, rtype);
+
         emitRFormat(OP_SPECIAL, aweSum, awePart,  previousTemporary(), FCT_ADDU); 
       } else if (operatorSymbol == SYM_MINUS) {
+        if (ltype != rtype)
+          typeWarning(ltype, rtype);
+
         emitRFormat(OP_SPECIAL, aweSum, awePart, previousTemporary(), FCT_SUBU);
       }
-
 
       tfree(1);
       doTheFolding = 0;
@@ -2946,7 +2938,7 @@ int gr_shift() {
   }
   
   // << or >> ?
-  if (isLeftOrRightShift()) {
+  while (isLeftOrRightShift()) {
     operatorSymbol = symbol;
 
     getSymbol();
@@ -3011,7 +3003,7 @@ int gr_expression(int constant) {
 
   // assert: n = allocatedTemporaries
 
-    ltype = gr_shift();
+  ltype = gr_shift();
 
   if(constFlag){
     doTheFolding = 1;
@@ -6921,17 +6913,17 @@ int selfie(int argc, int* argv) {
 int main(int argc, int* argv) {
   initLibrary();
 
-    initScanner();
+  initScanner();
 
-    initRegister();
-    initDecoder();
+  initRegister();
+  initDecoder();
 
-    initInterpreter();
+  initInterpreter();
 
-    selfieName = (int*) *argv;
+  selfieName = (int*) *argv;
 
-    argc = argc - 1;
-    argv = argv + 1;
+  argc = argc - 1;
+  argv = argv + 1;
 
 
     //assignment00
