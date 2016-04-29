@@ -39,6 +39,8 @@ simpleExpression = [ "-" ] term { ( "+" | "-" ) term } .
 
 shift            = simpleExpression { ( "<<" | ">>" ) simpleExpression } .
 
+selector	 = "[" expression "]".
+
 expression       = shift [ ( "==" | "!=" | "<" | ">" | "<=" | ">=" ) shift ] .
 
 while            = "while" "(" expression ")" 
