@@ -1889,6 +1889,16 @@ int getSymbol() {
     getCharacter();
 
     symbol = SYM_RPARENTHESIS;
+      
+  } else if (character == CHAR_LBRACKET) {
+    getCharacter();
+
+    symbol = SYM_LBRACKET;  
+  
+  } else if (character == CHAR_RBRACKET) {
+    getCharacter();
+
+    symbol = SYM_RBRACKET;
 
   } else if (character == CHAR_LBRACE) {
     getCharacter();
