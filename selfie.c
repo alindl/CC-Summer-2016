@@ -439,6 +439,7 @@ void resetSymbolTables() {
 // -----------------------------------------------------------------
 
 int isNotRbraceOrEOF();
+int isNotRbracketOrEOF();
 int isExpression();
 int isLiteral();
 int isStarOrDivOrModulo();
@@ -1889,12 +1890,12 @@ int getSymbol() {
     getCharacter();
 
     symbol = SYM_RPARENTHESIS;
-      
+
   } else if (character == CHAR_LBRACKET) {
     getCharacter();
 
-    symbol = SYM_LBRACKET;  
-  
+    symbol = SYM_LBRACKET;
+
   } else if (character == CHAR_RBRACKET) {
     getCharacter();
 
@@ -2089,6 +2090,16 @@ int isNotRbraceOrEOF() {
   else
     return 1;
 }
+
+int isNotRbracketOrEOF() {
+  if (symbol == SYM_RBRACKET)
+    return 0;
+  else if(symbol == SYM_EOF)
+    return 0;
+  else
+    return 1;
+}
+
 
 int isExpression() {
   if (symbol == SYM_MINUS)
@@ -2774,7 +2785,7 @@ int gr_term(int* notGlobal) {
   int sourceRegisterTwo;
 
   // assert: n = allocatedTemporaries
-  
+
   doTheFolding = 0;
 
   ltype = gr_factor(notGlobal);
@@ -2783,7 +2794,7 @@ int gr_term(int* notGlobal) {
     doTheFolding = 1;
     sumFolding = *(notGlobal);
   }
-  
+
   // assert: allocatedTemporaries == n + 1
 
   // * / or % ?
@@ -2814,7 +2825,7 @@ int gr_term(int* notGlobal) {
         load_integer(sumFolding);
         sourceRegisterOne = currentTemporary();
         sourceRegisterTwo = previousTemporary();
-      } else {   
+      } else {
         if (*(notGlobal + 1)) {
           load_integer(*(notGlobal));
         }
@@ -2920,7 +2931,7 @@ int gr_simpleExpression(int* notGlobal) {
 
     if(and(*(notGlobal + 1), doTheFolding)){
       if (operatorSymbol == SYM_PLUS) {
-        if (ltype == INTSTAR_T) 
+        if (ltype == INTSTAR_T)
           if (rtype == INT_T)
             *(notGlobal) = *(notGlobal) << 2;
           sumFolding = sumFolding + *(notGlobal);
@@ -2934,7 +2945,7 @@ int gr_simpleExpression(int* notGlobal) {
         load_integer(sumFolding);
         sourceRegisterOne = currentTemporary();
         sourceRegisterTwo = previousTemporary();
-      } else {   
+      } else {
         if (*(notGlobal + 1)) {
           load_integer(*(notGlobal));
         }
@@ -2948,7 +2959,7 @@ int gr_simpleExpression(int* notGlobal) {
          } else if (rtype == INTSTAR_T)
            typeWarning(ltype, rtype);
 
-        emitRFormat(OP_SPECIAL, sourceRegisterOne, sourceRegisterTwo,  previousTemporary(), FCT_ADDU); 
+        emitRFormat(OP_SPECIAL, sourceRegisterOne, sourceRegisterTwo,  previousTemporary(), FCT_ADDU);
       } else if (operatorSymbol == SYM_MINUS) {
         if (ltype != rtype)
           typeWarning(ltype, rtype);
@@ -2988,7 +2999,7 @@ int gr_shift(int* notGlobal) {
     doTheFolding = 1;
     sumFolding = *(notGlobal);
   }
-  
+
   // << or >> ?
   while (isLeftOrRightShift()) {
     operatorSymbol = symbol;
@@ -3009,34 +3020,34 @@ int gr_shift(int* notGlobal) {
     if (operatorSymbol == SYM_RS)
       sumFolding = sumFolding >> *(notGlobal);
   } else {
-      
+
     if (doTheFolding) {
       load_integer(sumFolding);
       sourceRegisterOne = currentTemporary();
       sourceRegisterTwo = previousTemporary();
-    } else {   
+    } else {
       if (*(notGlobal + 1)) {
         load_integer(*(notGlobal));
       }
       sourceRegisterOne = previousTemporary();
       sourceRegisterTwo = currentTemporary();
     }
-        
+
     if (operatorSymbol == SYM_LS)
       emitRFormat(OP_SPECIAL, sourceRegisterTwo, sourceRegisterOne, previousTemporary(), FCT_SLLV);
     if (operatorSymbol == SYM_RS)
       emitRFormat(OP_SPECIAL, sourceRegisterTwo, sourceRegisterOne, previousTemporary(), FCT_SRLV);
-          
+
     tfree(1);
     doTheFolding = 0;
     }
   }
-  
+
   *(notGlobal + 1) = doTheFolding;
   if (doTheFolding) {
     *(notGlobal) = sumFolding;
   }
-  
+
   return ltype;
 }
 
@@ -3101,7 +3112,7 @@ int gr_expression() {
         load_integer(sumFolding);
         sourceRegisterOne = currentTemporary();
         sourceRegisterTwo = previousTemporary();
-      } else {   
+      } else {
         if (*(notGlobal + 1)) {
           load_integer(*(notGlobal));
         }
@@ -3168,14 +3179,14 @@ int gr_expression() {
       emitIFormat(OP_ADDIU, REG_ZR, currentTemporary(), 0);
     }
 
-    doTheFolding = 0;    
+    doTheFolding = 0;
     }
   }
-  
+
     if (doTheFolding)
       load_integer(sumFolding);
     *(notGlobal + 1) = 0;
- 
+
 
   return ltype;
 }
@@ -6991,13 +7002,13 @@ int main(int argc, int* argv) {
    // println();
    // print((int*) "1 + 1 + 1 + 4242 + x: ");
    // print(itoa( (1 + 1 + 1 + 4242 + x) ,string_buffer,10,0,0));
-    //in selfie1.s if your search for 4245 if shows up once .. 
+    //in selfie1.s if your search for 4245 if shows up once ..
     //that's the folding sum being pushed ob the stack
 
    // println();
    // print((int*) "x + 1 + 1 + 1 + 4242: ");
    // print(itoa( (x + 1 + 1 + 1 + 4242),string_buffer,10,0,0));
-    //in selfie1.s if your search for 4242 if shows up once .. 
+    //in selfie1.s if your search for 4242 if shows up once ..
     //because the first addition constant folded, it doesn't show up in assembly
     //but because of the second addition it did because this doesn't constant fold
 
