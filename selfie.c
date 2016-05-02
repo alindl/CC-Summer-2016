@@ -2696,7 +2696,26 @@ int gr_factor(int* notGlobal) {
 
     getSymbol();
 
-    if (symbol == SYM_LPARENTHESIS) {
+    if (symbol == SYM_LBRACKET) {
+
+      type = load_variable(variableOrProcedureName);
+
+      if (type != INTSTAR_T)
+        typeWarning(INTSTAR_T, type);
+
+      type = gr_expression();
+
+      if (type != INT_T)
+        typeWarning(INT_T, type);
+
+      if (symbol == SYM_RBRACKET)
+        getSymbol();
+      else
+        syntaxErrorSymbol(SYM_RBRACKET);
+
+      //TODO
+
+    } else if (symbol == SYM_LPARENTHESIS) {
       getSymbol();
 
       // function call: identifier "(" ... ")"
@@ -3473,8 +3492,29 @@ void gr_statement() {
 
     getSymbol();
 
+    if (symbol == SYM_LBRACKET) {
+
+      ltype = load_variable(variableOrProcedureName);
+
+      if (ltype != INTSTAR_T)
+        typeWarning(INTSTAR_T, rtype);
+
+      getSymbol();
+
+      rtype = gr_expression();
+
+      if (ltype != INT_T)
+        typeWarning(INT_T, rtype);
+
+      if (symbol == SYM_RBRACKET)
+        getSymbol();
+      else
+        syntaxErrorSymbol(SYM_RBRACKET);
+
+      //TODO
+
     // call
-    if (symbol == SYM_LPARENTHESIS) {
+  } else if (symbol == SYM_LPARENTHESIS) {
       getSymbol();
 
       gr_call(variableOrProcedureName);
@@ -3560,6 +3600,27 @@ void gr_variable(int offset) {
     createSymbolTableEntry(LOCAL_TABLE, identifier, lineNumber, VARIABLE, type, 0, offset);
 
     getSymbol();
+    if (symbol == SYM_LBRACKET) {
+
+      getSymbol();
+
+      if (symbol == SYM_INTEGER)
+        getSymbol();
+      else
+        syntaxErrorSymbol(SYM_INTEGER);
+
+      if (symbol == SYM_RBRACKET)
+        getSymbol();
+      else
+        syntaxErrorSymbol(SYM_RBRACKET);
+
+      type = INTSTAR_T;
+
+      allocatedMemory  = allocatedMemory  + WORDSIZE;
+
+      //TODO
+      }
+
   } else {
     syntaxErrorSymbol(SYM_IDENTIFIER);
 
@@ -3813,7 +3874,27 @@ void gr_cstar() {
         // type identifier "(" procedure declaration or definition
         if (symbol == SYM_LPARENTHESIS)
           gr_procedure(variableOrProcedureName, type);
-        else {
+        else if (symbol == SYM_LBRACKET) {
+
+          getSymbol();
+
+          if (symbol == SYM_INTEGER)
+            getSymbol();
+          else
+            syntaxErrorSymbol(SYM_INTEGER);
+
+          if (symbol == SYM_RBRACKET)
+            getSymbol();
+          else
+            syntaxErrorSymbol(SYM_RBRACKET);
+
+          type = INTSTAR_T;
+
+          allocatedMemory  = allocatedMemory  + WORDSIZE;
+
+          //TODO
+
+        } else {
           allocatedMemory = allocatedMemory + WORDSIZE;
 
           // type identifier ";" global variable declaration

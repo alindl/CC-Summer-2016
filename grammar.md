@@ -27,8 +27,8 @@ call             = identifier "(" [ expression { "," expression } ] ")" .
 
 literal          = integer | "'" ascii_character "'" .
 
-factor           = [ cast ] 
-                    ( [ "*" ] ( identifier | "(" expression ")" ) |
+factor           = [ cast ]
+                    ( [ "*" ] ( identifier [ selector ] | "(" expression ")" ) |
                       call |
                       literal |
                       """ { ascii_character } """ ) .
@@ -39,35 +39,35 @@ simpleExpression = [ "-" ] term { ( "+" | "-" ) term } .
 
 shift            = simpleExpression { ( "<<" | ">>" ) simpleExpression } .
 
-selector	 = "[" expression "]".
+selector	       = "[" expression "]".
 
 expression       = shift [ ( "==" | "!=" | "<" | ">" | "<=" | ">=" ) shift ] .
 
-while            = "while" "(" expression ")" 
+while            = "while" "(" expression ")"
                              ( statement |
                                "{" { statement } "}" ) .
 
-if               = "if" "(" expression ")" 
-                             ( statement | 
-                               "{" { statement } "}" ) 
+if               = "if" "(" expression ")"
+                             ( statement |
+                               "{" { statement } "}" )
                          [ "else"
                              ( statement |
                                "{" { statement } "}" ) ] .
 
 return           = "return" [ expression ] .
 
-statement        = ( [ "*" ] identifier | "*" "(" expression ")" ) "="
+statement        = ( [ "*" ] identifier [ selector ] | "*" "(" expression ")" ) "="
                       expression ";" |
-                    call ";" | 
-                    while | 
-                    if | 
+                    call ";" |
+                    while |
+                    if |
                     return ";" .
 
-variable         = type identifier .
+variable         = type identifier [ "[" integer "]" ] .
 
-procedure        = "(" [ variable { "," variable } ] ")" 
+procedure        = "(" [ variable { "," variable } ] ")"
                     ( ";" | "{" { variable ";" } { statement } "}" ) .
 
-cstar            = { type identifier [ "=" [ cast ] [ "-" ] literal ] ";" |
+cstar            = { type identifier [ "[" integer "]" ] [ "=" [ cast ] [ "-" ] literal ] ";" |
                    ( "void" | type ) identifier procedure } .
 ```
