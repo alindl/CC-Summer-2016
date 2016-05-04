@@ -282,7 +282,7 @@ int SYM_RS           = 29; // >>
 int SYM_LBRACKET     = 30; // [
 int SYM_RBRACKET     = 31; // ]
 
-int* SYMBOLS[34]; // array of strings representing symbols
+int SYMBOLS[34]; // array of strings representing symbols
 
 int maxIdentifierLength = 64; // maximum number of characters in an identifier
 int maxIntegerLength    = 10; // maximum number of characters in an integer
@@ -2740,8 +2740,6 @@ int gr_factor(int* notGlobal) {
 
   // integer?
   } else if (symbol == SYM_INTEGER) {
-     //load_integer(literal);
-    //TODO: delay integer load
 
     *(notGlobal + 1) = 1;
     *(notGlobal) = literal;
