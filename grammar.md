@@ -39,7 +39,7 @@ simpleExpression = [ "-" ] term { ( "+" | "-" ) term } .
 
 shift            = simpleExpression { ( "<<" | ">>" ) simpleExpression } .
 
-selector	       = "[" expression "]".
+selector         = "[" expression "]".
 
 expression       = shift [ ( "==" | "!=" | "<" | ">" | "<=" | ">=" ) shift ] .
 

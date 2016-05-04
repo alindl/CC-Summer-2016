@@ -379,7 +379,7 @@ int reportUndefinedProcedures();
 // |  1 | string  | identifier string, string literal
 // |  2 | line#   | source line number
 // |  3 | class   | VARIABLE, PROCEDURE, STRING
-// |  4 | type    | INT_T, INTSTAR_T, VOID_T
+// |  4 | type    | INT_T, INTSTAR_T, VOID_T, ARRAY_T
 // |  5 | value   | VARIABLE: initial value
 // |  6 | address | VARIABLE: offset, PROCEDURE: address, STRING: offset
 // |  7 | scope   | REG_GP, REG_FP
@@ -417,6 +417,7 @@ int STRING    = 3;
 int INT_T     = 1;
 int INTSTAR_T = 2;
 int VOID_T    = 3;
+int ARRAY_T   = 4;
 
 // symbol tables
 int GLOBAL_TABLE  = 1;
@@ -2327,6 +2328,8 @@ int* putType(int type) {
     return (int*) "int*";
   else if (type == VOID_T)
     return (int*) "void";
+  else if (type == ARRAY_T)
+    return (int*) "array";
   else
     return (int*) "unknown";
 }
