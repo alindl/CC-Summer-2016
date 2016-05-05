@@ -3649,7 +3649,7 @@ void gr_variable(int offset, int* notGlobal) {
       if (offset < 0) {
         createSymbolTableEntry(LOCAL_TABLE, identifier, lineNumber, ARRAY, type, 0, offset + WORDSIZE - *(notGlobal) * WORDSIZE);
         setSize(local_symbol_table, WORDSIZE * *(notGlobal));
-        *(notGlobal) = getSize(local_symbol_table));
+        *(notGlobal) = getSize(local_symbol_table);
 
       } else {
         createSymbolTableEntry(LOCAL_TABLE, identifier, lineNumber, ARRAY, type, 0, offset);
