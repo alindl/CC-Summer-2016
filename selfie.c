@@ -481,7 +481,7 @@ void gr_if(int* notGlobal);
 void gr_return(int returnType, int* notGlobal);
 void gr_statement(int* notGlobal);
 int  gr_type();
-void gr_variable(int offset);
+void gr_variable(int offset, int* notGlobal);
 void gr_initialization(int* name, int offset, int type);
 void gr_procedure(int* procedure, int returnType, int* notGlobal);
 void gr_cstar();
@@ -2033,6 +2033,12 @@ int* getSymbolTableEntry(int* string, int class) {
 
     if (entry != (int*) 0)
       return entry;
+
+  } else if (class == ARRAY) {
+    entry = searchSymbolTable(local_symbol_table, string, class);
+
+    if (entry != (int*) 0)
+      return entry;
   }
 
   return searchSymbolTable(global_symbol_table, string, class);
@@ -2103,7 +2109,6 @@ int isNotRbracketOrEOF() {
   else
     return 1;
 }
-
 
 int isExpression() {
   if (symbol == SYM_MINUS)
@@ -2352,12 +2357,18 @@ int* getVariable(int* variable) {
   entry = getSymbolTableEntry(variable, VARIABLE);
 
   if (entry == (int*) 0) {
-    printLineNumber((int*) "error", lineNumber);
-    print(variable);
-    print((int*) " undeclared");
-    println();
 
-    exit(-1);
+    entry = getSymbolTableEntry(variable, ARRAY);
+
+    if (entry == (int*) 0) {
+
+      printLineNumber((int*) "error", lineNumber);
+      print(variable);
+      print((int*) " undeclared");
+      println();
+
+      exit(-1);
+    }
   }
 
   return entry;
@@ -2701,8 +2712,8 @@ int gr_factor(int* notGlobal) {
 
     if (symbol == SYM_LBRACKET) {
 
-      entry = getSymbolTableEntry(variableOrProcedureName, ARRAY);
-      
+      entry = getVariable(variableOrProcedureName);
+
       getSymbol();
 
       type = gr_expression(notGlobal);
@@ -3498,7 +3509,7 @@ void gr_statement(int* notGlobal) {
 
     if (symbol == SYM_LBRACKET) {
 
-      entry = getSymbolTableEntry(variableOrProcedureName, ARRAY);
+      entry = getVariable(variableOrProcedureName);
       ltype = getType(entry);
 
       getSymbol();
@@ -3613,14 +3624,43 @@ int gr_type() {
   return type;
 }
 
-void gr_variable(int offset) {
+void gr_variable(int offset, int* notGlobal) {
   int type;
+  int arrayType;
 
   type = gr_type();
 
   if (symbol == SYM_IDENTIFIER) {
-    createSymbolTableEntry(LOCAL_TABLE, identifier, lineNumber, VARIABLE, type, 0, offset);
     getSymbol();
+
+    if (symbol == SYM_LBRACKET) {
+      getSymbol();
+
+      arrayType = gr_expression(notGlobal);
+
+      if (arrayType != INT_T)
+        typeWarning(INT_T, arrayType);
+
+      if (symbol == SYM_RBRACKET)
+        getSymbol();
+      else
+        syntaxErrorSymbol(SYM_RBRACKET);
+
+      if (offset < 0) {
+        createSymbolTableEntry(LOCAL_TABLE, identifier, lineNumber, ARRAY, type, 0, offset + WORDSIZE - *(notGlobal) * WORDSIZE);
+        setSize(local_symbol_table, WORDSIZE * *(notGlobal));
+        *(notGlobal) = getSize(local_symbol_table));
+
+      } else {
+        createSymbolTableEntry(LOCAL_TABLE, identifier, lineNumber, ARRAY, type, 0, offset);
+        setSize(local_symbol_table, WORDSIZE * *(notGlobal) );
+      }
+
+    } else {
+      createSymbolTableEntry(LOCAL_TABLE, identifier, lineNumber, VARIABLE, type, 0, offset);
+      *(notGlobal) = WORDSIZE;
+    }
+
   } else {
     syntaxErrorSymbol(SYM_IDENTIFIER);
 
@@ -3710,6 +3750,7 @@ void gr_procedure(int* procedure, int returnType, int* notGlobal) {
   int localVariables;
   int functionStart;
   int* entry;
+  int address;
 
   currentProcedureName = procedure;
 
@@ -3720,14 +3761,14 @@ void gr_procedure(int* procedure, int returnType, int* notGlobal) {
     getSymbol();
 
     if (symbol != SYM_RPARENTHESIS) {
-      gr_variable(0);
+      gr_variable(0, notGlobal);
 
       numberOfParameters = 1;
 
       while (symbol == SYM_COMMA) {
         getSymbol();
 
-        gr_variable(0);
+        gr_variable(0, notGlobal);
 
         numberOfParameters = numberOfParameters + 1;
       }
@@ -3793,17 +3834,22 @@ void gr_procedure(int* procedure, int returnType, int* notGlobal) {
     getSymbol();
 
     localVariables = 0;
+    address = WORDSIZE;
+    *(notGlobal) = 0;
 
     while (symbol == SYM_INT) {
       localVariables = localVariables + 1;
 
-      gr_variable(-localVariables * WORDSIZE);
+      gr_variable(-address, notGlobal);
+      address = address + *(notGlobal);
 
       if (symbol == SYM_SEMICOLON)
         getSymbol();
       else
         syntaxErrorSymbol(SYM_SEMICOLON);
     }
+    *(notGlobal) = 0;
+    *(notGlobal + 1) = 0;
 
     help_procedure_prologue(localVariables);
 
@@ -7100,7 +7146,7 @@ int main(int argc, int* argv) {
  //   println();
  //   print((int*) "x is: ");
  //   print(itoa(x[y],string_buffer,10,0,0));
- //   println(); 
+ //   println();
  //   y = y + 1;
  // }
 

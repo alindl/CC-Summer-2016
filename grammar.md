@@ -63,11 +63,11 @@ statement        = ( [ "*" ] identifier [ selector ] | "*" "(" expression ")" ) 
                     if |
                     return ";" .
 
-variable         = type identifier [ "[" integer "]" ] .
+variable         = type identifier [ selector ] .
 
 procedure        = "(" [ variable { "," variable } ] ")"
                     ( ";" | "{" { variable ";" } { statement } "}" ) .
 
-cstar            = { type identifier [ "[" integer "]" ] [ "=" [ cast ] [ "-" ] literal ] ";" |
+cstar            = { type identifier [ selector ] [ "=" [ cast ] [ "-" ] literal ] ";" |
                    ( "void" | type ) identifier procedure } .
 ```
