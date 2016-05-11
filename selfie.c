@@ -405,7 +405,7 @@ void setType(int* entry, int type)          { *(entry +  4) = type; }
 void setValue(int* entry, int value)        { *(entry +  5) = value; }
 void setAddress(int* entry, int address)    { *(entry +  6) = address; }
 void setScope(int* entry, int scope)        { *(entry +  7) = scope; }
-void setSize1(int* entry, int size)         { *(entry +  8) = size; }
+void setSize(int* entry, int size)         { *(entry +  8) = size; }
 void setFlag(int* entry, int isParameter)   { *(entry +  9) = isParameter; }
 
 // ------------------------ GLOBAL CONSTANTS -----------------------
@@ -1987,7 +1987,6 @@ int getSymbol() {
 
 void createSymbolTableEntry(int whichTable, int* string, int line, int class, int type, int value, int address) {
   int* newEntry;
-  int typeSize = WORDSIZE; //Standard size is WORDSIZE
 
   newEntry = malloc(2 * SIZEOFINTSTAR + 8 * SIZEOFINT);
 
@@ -1997,15 +1996,7 @@ void createSymbolTableEntry(int whichTable, int* string, int line, int class, in
   setType(newEntry, type);
   setValue(newEntry, value);
   setAddress(newEntry, address);
-
-  if(type == INT_T)
-    typeSize = SIZEOFINT;
-  else if(type == INTSTAR_T)
-    typeSize = SIZEOFINTSTAR;
-  else
-    typeWarning(INT_T,type);
-
-  setSize(newEntry, typeSize);
+  setSize(newEntry, SIZEOFINT);
   setFlag(newEntry, 0);
 
   // create entry at head of symbol table
@@ -3543,7 +3534,7 @@ void gr_statement(int* notGlobal) {
         syntaxErrorSymbol(SYM_RBRACKET);
 
       emitLeftShiftBy(2);
-      if (isParam(entry)) {
+      if (getFlag(entry)) {
         talloc(1);
         emitIFormat(OP_LW, getScope(entry), currentTemporary(), getAddress(entry));
         emitRFormat(OP_SPECIAL, currentTemporary(), previousTemporary(), currentTemporary(), FCT_ADDU);
@@ -3561,7 +3552,7 @@ void gr_statement(int* notGlobal) {
           typeWarning(ltype, rtype);
 
 
-        if (isParam(entry)) {
+        if (getFlag(entry)) {
           emitIFormat(OP_SW, previousTemporary(), currentTemporary(), 0);
           tfree(1);
         }
@@ -3680,8 +3671,8 @@ void gr_variable(int offset, int* notGlobal) {
       if (offset < 0) {
           createSymbolTableEntry(LOCAL_TABLE, identifier, lineNumber, ARRAY, type, 0, offset + WORDSIZE - *(notGlobal) * WORDSIZE);
           setSize(local_symbol_table, WORDSIZE * *(notGlobal));
-          *(notGlobal) = getSize1(local_symbol_table);
-        }
+          *(notGlobal) = getSize(local_symbol_table);
+
 
       } else {
         createSymbolTableEntry(LOCAL_TABLE, identifier, lineNumber, ARRAY, type, 0, offset);
