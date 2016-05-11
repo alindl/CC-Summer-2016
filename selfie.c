@@ -381,28 +381,32 @@ int reportUndefinedProcedures();
 // |  5 | value   | VARIABLE: initial value
 // |  6 | address | VARIABLE: offset, PROCEDURE: address, STRING: offset
 // |  7 | scope   | REG_GP, REG_FP
-// |  8 | size    | SIZE
+// |  8 | size    | SIZE of first dimension
+// |  9 | flag    | Flag for parameters
 // +----+---------+
 
 int* getNextEntry(int* entry)  { return (int*) *entry; }
-int* getString(int* entry)     { return (int*) *(entry + 1); }
-int  getLineNumber(int* entry) { return        *(entry + 2); }
-int  getClass(int* entry)      { return        *(entry + 3); }
-int  getType(int* entry)       { return        *(entry + 4); }
-int  getValue(int* entry)      { return        *(entry + 5); }
-int  getAddress(int* entry)    { return        *(entry + 6); }
-int  getScope(int* entry)      { return        *(entry + 7); }
-int  getSize(int* entry)       { return        *(entry + 8); }
+int* getString(int* entry)     { return (int*) *(entry +  1); }
+int  getLineNumber(int* entry) { return        *(entry +  2); }
+int  getClass(int* entry)      { return        *(entry +  3); }
+int  getType(int* entry)       { return        *(entry +  4); }
+int  getValue(int* entry)      { return        *(entry +  5); }
+int  getAddress(int* entry)    { return        *(entry +  6); }
+int  getScope(int* entry)      { return        *(entry +  7); }
+int  getSize(int* entry)       { return        *(entry +  8); }
+int  getFlag(int* entry)       { return        *(entry +  9); }
+
 
 void setNextEntry(int* entry, int* next)    { *entry       = (int) next; }
-void setString(int* entry, int* identifier) { *(entry + 1) = (int) identifier; }
-void setLineNumber(int* entry, int line)    { *(entry + 2) = line; }
-void setClass(int* entry, int class)        { *(entry + 3) = class; }
-void setType(int* entry, int type)          { *(entry + 4) = type; }
-void setValue(int* entry, int value)        { *(entry + 5) = value; }
-void setAddress(int* entry, int address)    { *(entry + 6) = address; }
-void setScope(int* entry, int scope)        { *(entry + 7) = scope; }
-void setSize(int* entry, int size)          { *(entry + 8) = size; }
+void setString(int* entry, int* identifier) { *(entry +  1) = (int) identifier; }
+void setLineNumber(int* entry, int line)    { *(entry +  2) = line; }
+void setClass(int* entry, int class)        { *(entry +  3) = class; }
+void setType(int* entry, int type)          { *(entry +  4) = type; }
+void setValue(int* entry, int value)        { *(entry +  5) = value; }
+void setAddress(int* entry, int address)    { *(entry +  6) = address; }
+void setScope(int* entry, int scope)        { *(entry +  7) = scope; }
+void setSize1(int* entry, int size)         { *(entry +  8) = size; }
+void setFlag(int* entry, int isParameter)   { *(entry +  9) = isParameter; }
 
 // ------------------------ GLOBAL CONSTANTS -----------------------
 
@@ -467,7 +471,7 @@ void load_integer(int value);
 void load_string(int* string);
 
 int  help_call_codegen(int* entry, int* procedure);
-void help_procedure_prologue(int localVariables);
+void help_procedure_prologue(int size);
 void help_procedure_epilogue(int parameters);
 
 int  gr_call(int* procedure, int* notGlobal);
@@ -1983,8 +1987,9 @@ int getSymbol() {
 
 void createSymbolTableEntry(int whichTable, int* string, int line, int class, int type, int value, int address) {
   int* newEntry;
+  int typeSize = WORDSIZE; //Standard size is WORDSIZE
 
-  newEntry = malloc(2 * SIZEOFINTSTAR + 7 * SIZEOFINT);
+  newEntry = malloc(2 * SIZEOFINTSTAR + 8 * SIZEOFINT);
 
   setString(newEntry, string);
   setLineNumber(newEntry, line);
@@ -1992,7 +1997,16 @@ void createSymbolTableEntry(int whichTable, int* string, int line, int class, in
   setType(newEntry, type);
   setValue(newEntry, value);
   setAddress(newEntry, address);
-  setSize(newEntry, SIZEOFINT);
+
+  if(type == INT_T)
+    typeSize = SIZEOFINT;
+  else if(type == INTSTAR_T)
+    typeSize = SIZEOFINTSTAR;
+  else
+    typeWarning(INT_T,type);
+
+  setSize(newEntry, typeSize);
+  setFlag(newEntry, 0);
 
   // create entry at head of symbol table
   if (whichTable == GLOBAL_TABLE) {
@@ -2381,7 +2395,10 @@ int load_variable(int* variable) {
 
   talloc();
 
-  emitIFormat(OP_LW, getScope(entry), currentTemporary(), getAddress(entry));
+  if (getClass(entry) == ARRAY)
+    emitIFormat(OP_ADDIU, getScope(entry), currentTemporary(), getAddress(entry));
+  else
+    emitIFormat(OP_LW, getScope(entry), currentTemporary(), getAddress(entry));
 
   return getType(entry);
 }
@@ -2506,7 +2523,7 @@ int help_call_codegen(int* entry, int* procedure) {
   return type;
 }
 
-void help_procedure_prologue(int localVariables) {
+void help_procedure_prologue(int size) {
   // allocate space for return address
   emitIFormat(OP_ADDIU, REG_SP, REG_SP, -WORDSIZE);
 
@@ -2523,8 +2540,8 @@ void help_procedure_prologue(int localVariables) {
   emitIFormat(OP_ADDIU, REG_SP, REG_FP, 0);
 
   // allocate space for callee's local variables
-  if (localVariables != 0)
-    emitIFormat(OP_ADDIU, REG_SP, REG_SP, -localVariables * WORDSIZE);
+  if (size != 0)
+    emitIFormat(OP_ADDIU, REG_SP, REG_SP, -size);
 }
 
 void help_procedure_epilogue(int parameters) {
@@ -2729,8 +2746,9 @@ int gr_factor(int* notGlobal) {
         syntaxErrorSymbol(SYM_RBRACKET);
 
       emitLeftShiftBy(2);
+      emitIFormat(OP_ADDIU, currentTemporary(), currentTemporary(), getAddress(entry));
       emitRFormat(OP_SPECIAL, currentTemporary(), getScope(entry), currentTemporary(), FCT_ADDU);
-      emitIFormat(OP_LW, currentTemporary(), currentTemporary(), getAddress(entry));
+      emitIFormat(OP_LW, currentTemporary(), currentTemporary(), 0);
 
     } else if (symbol == SYM_LPARENTHESIS) {
       getSymbol();
@@ -3525,7 +3543,14 @@ void gr_statement(int* notGlobal) {
         syntaxErrorSymbol(SYM_RBRACKET);
 
       emitLeftShiftBy(2);
-      emitRFormat(OP_SPECIAL, currentTemporary(), getScope(entry), currentTemporary(), FCT_ADDU);
+      if (isParam(entry)) {
+        talloc(1);
+        emitIFormat(OP_LW, getScope(entry), currentTemporary(), getAddress(entry));
+        emitRFormat(OP_SPECIAL, currentTemporary(), previousTemporary(), currentTemporary(), FCT_ADDU);
+      } else {
+        emitIFormat(OP_ADDIU, currentTemporary(), currentTemporary(), getAddress(entry));
+        emitRFormat(OP_SPECIAL, currentTemporary(), getScope(entry), currentTemporary(), FCT_ADDU);
+      }
 
       if (symbol == SYM_ASSIGN) {
         getSymbol();
@@ -3535,7 +3560,13 @@ void gr_statement(int* notGlobal) {
         if (rtype != ltype)
           typeWarning(ltype, rtype);
 
-        emitIFormat(OP_SW, previousTemporary(), currentTemporary(), getAddress(entry));
+
+        if (isParam(entry)) {
+          emitIFormat(OP_SW, previousTemporary(), currentTemporary(), 0);
+          tfree(1);
+        }
+        else
+          emitIFormat(OP_SW, previousTemporary(), currentTemporary(), 0);
 
         tfree(2);
       } else
@@ -3647,13 +3678,15 @@ void gr_variable(int offset, int* notGlobal) {
         syntaxErrorSymbol(SYM_RBRACKET);
 
       if (offset < 0) {
-        createSymbolTableEntry(LOCAL_TABLE, identifier, lineNumber, ARRAY, type, 0, offset + WORDSIZE - *(notGlobal) * WORDSIZE);
-        setSize(local_symbol_table, WORDSIZE * *(notGlobal));
-        *(notGlobal) = getSize(local_symbol_table);
+          createSymbolTableEntry(LOCAL_TABLE, identifier, lineNumber, ARRAY, type, 0, offset + WORDSIZE - *(notGlobal) * WORDSIZE);
+          setSize(local_symbol_table, WORDSIZE * *(notGlobal));
+          *(notGlobal) = getSize1(local_symbol_table);
+        }
 
       } else {
         createSymbolTableEntry(LOCAL_TABLE, identifier, lineNumber, ARRAY, type, 0, offset);
         setSize(local_symbol_table, WORDSIZE * *(notGlobal) );
+        setFlag(local_symbol_table, 1);
       }
 
     } else {
@@ -3851,7 +3884,7 @@ void gr_procedure(int* procedure, int returnType, int* notGlobal) {
     *(notGlobal) = 0;
     *(notGlobal + 1) = 0;
 
-    help_procedure_prologue(localVariables);
+    help_procedure_prologue(address - WORDSIZE);
 
     // create a fixup chain for return statements
     returnBranches = 0;
