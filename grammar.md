@@ -19,7 +19,7 @@ letter           = "a" | ... | "z" | "A" | ... | "Z" .
 
 identifier       = letter { letter | digit | "_" } .
 
-type             = "int" [ "*" ] .
+type             = "int" [ "*" ] | "struct" .
 
 cast             = "(" type ")" .
 
@@ -28,7 +28,7 @@ call             = identifier "(" [ expression { "," expression } ] ")" .
 literal          = integer | "'" ascii_character "'" .
 
 factor           = [ cast ]
-                    ( [ "*" ] ( identifier [ selector ] | "(" expression ")" ) |
+                    ( [ "*" ] ( identifier [ array ] | "(" expression ")" ) |
                       call |
                       literal |
                       """ { ascii_character } """ ) .
@@ -39,7 +39,10 @@ simpleExpression = [ "-" ] term { ( "+" | "-" ) term } .
 
 shift            = simpleExpression { ( "<<" | ">>" ) simpleExpression } .
 
-selector         = "[" expression "]" [ "[" expression "]" ].
+array            = "[" expression "]" [ "[" expression "]" ].
+
+struct           = "struct" identifier [ "*" identifier ] "{"
+                    { variable { "," variable } ";" } "}"
 
 expression       = shift [ ( "==" | "!=" | "<" | ">" | "<=" | ">=" ) shift ] .
 
@@ -56,18 +59,18 @@ if               = "if" "(" expression ")"
 
 return           = "return" [ expression ] .
 
-statement        = ( [ "*" ] identifier [ selector ] | "*" "(" expression ")" ) "="
-                      expression ";" |
+statement        = ( [ "*" ] identifier [ array ] | "*" "(" expression ")" ) "="
+                    expression ";" |
                     call ";" |
                     while |
                     if |
                     return ";" .
 
-variable         = type identifier [ selector ] .
+variable         = type identifier [ array ] .
 
 procedure        = "(" [ variable { "," variable } ] ")"
                     ( ";" | "{" { variable ";" } { statement } "}" ) .
 
-cstar            = { type identifier [ selector ] [ "=" [ cast ] [ "-" ] literal ] ";" |
+cstar            = { variable [ "=" [ cast ] [ "-" ] literal ] ";" |
                    ( "void" | type ) identifier procedure } .
 ```
