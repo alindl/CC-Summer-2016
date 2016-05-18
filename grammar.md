@@ -19,7 +19,7 @@ letter           = "a" | ... | "z" | "A" | ... | "Z" .
 
 identifier       = letter { letter | digit | "_" } .
 
-type             = "int" [ "*" ] | "struct" .
+type             = "int" [ "*" ] | "struct" identifier "*".
 
 cast             = "(" type ")" .
 
@@ -41,8 +41,7 @@ shift            = simpleExpression { ( "<<" | ">>" ) simpleExpression } .
 
 array            = "[" expression "]" [ "[" expression "]" ].
 
-struct           = "struct" identifier [ "*" identifier ] "{"
-                    { variable { "," variable } ";" } "}"
+struct           = "struct" identifier "{" { variable ";" } "}" ";"
 
 expression       = shift [ ( "==" | "!=" | "<" | ">" | "<=" | ">=" ) shift ] .
 
@@ -66,11 +65,12 @@ statement        = ( [ "*" ] identifier [ array ] | "*" "(" expression ")" ) "="
                     if |
                     return ";" .
 
-variable         = type identifier [ array ] .
+variable         = type identifier [ array ] | "struct" identifier "*" identifier.
 
 procedure        = "(" [ variable { "," variable } ] ")"
-                    ( ";" | "{" { variable ";" } { statement } "}" ) .
+                    ( ";" | "{" { variable ";" | struct } { statement } "}" ) .
 
 cstar            = { variable [ "=" [ cast ] [ "-" ] literal ] ";" |
+                   struct | "struct" identifier "*" identifier ";" |
                    ( "void" | type ) identifier procedure } .
 ```
