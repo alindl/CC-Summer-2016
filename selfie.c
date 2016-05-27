@@ -430,7 +430,7 @@ int reportUndefinedProcedures();
 
 struct SymbolTable {
   struct SymbolTable* nextEntry;
-  int* structString;
+  int structString;
   int structLineNumber;
   int structClass;
   int structType;
@@ -460,7 +460,7 @@ int  getSecondDimSize(struct SymbolTable* entry)                  { return      
 
 
 void setNextEntry(struct SymbolTable* entry, struct SymbolTable* next)          { entry->nextEntry = next; }
-void setString(struct SymbolTable* entry, int* string)                          { entry->structString = (int*) string; }
+void setString(struct SymbolTable* entry, int* string)                          { entry->structString = (int) string; }
 void setLineNumber(struct SymbolTable* entry, int line)                         { entry->structLineNumber = line; }
 void setClass(struct SymbolTable* entry, int class)                             { entry->structClass = class; }
 void setType(struct SymbolTable* entry, int type)                               { entry->structType = type; }
@@ -1954,8 +1954,10 @@ int getSymbol() {
 
   } else if (character == CHAR_DASH) {
     getCharacter();
+
     if (character == CHAR_GT) {
       getCharacter();
+
       symbol = SYM_ARROW;
     } else
       symbol = SYM_MINUS;
@@ -2139,7 +2141,7 @@ void createSymbolTableEntry(int whichTable, int* string, int line, int class, in
   setAddress(newEntry, address);
   setArraySize(newEntry, typeSize);
   setParamFlag(newEntry, 0);
-  setFields(newEntry, 0);
+  setFields(newEntry, (int*) 0);
   setFirstDimSize(newEntry,0);
   setSecondDimSize(newEntry,0);
 
@@ -3989,46 +3991,44 @@ void gr_arrayAssign(int* notGlobal){
 
   entry = getVariable(identifier);
   ltype = getType(entry);
+  getSymbol();
+  rtype = gr_expression(notGlobal);
+
+  if (rtype != INT_T)
+    typeWarning(INT_T, ltype);
+
+  if (symbol == SYM_RBRACKET)
     getSymbol();
+  else
+    syntaxErrorSymbol(SYM_RBRACKET);
+
+  if (symbol == SYM_LBRACKET) {
+    getSymbol();
+
+    load_integer(getSecondDimSize(entry));
+    emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), 0, FCT_MULTU);
+    emitRFormat(OP_SPECIAL, 0, 0, previousTemporary(), FCT_MFLO);
+    tfree(1);
+
     rtype = gr_expression(notGlobal);
 
+    emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), previousTemporary(), FCT_ADDU);
+    tfree(1);
+
     if (rtype != INT_T)
-      typeWarning(INT_T, ltype);
+      typeWarning(INT_T, rtype);
+
+    ltype = getType(entry);
 
     if (symbol == SYM_RBRACKET)
       getSymbol();
     else
       syntaxErrorSymbol(SYM_RBRACKET);
-
-    if (symbol == SYM_LBRACKET) {
-      getSymbol();
-
-      load_integer(getSecondDimSize(entry));
-      emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), 0, FCT_MULTU);
-      emitRFormat(OP_SPECIAL, 0, 0, previousTemporary(), FCT_MFLO);
-      tfree(1);
-
-      rtype = gr_expression(notGlobal);
-
-      emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), previousTemporary(), FCT_ADDU);
-      tfree(1);
-
-      if (rtype != INT_T)
-        typeWarning(INT_T, rtype);
-
-      ltype = getType(entry);
-
-      if (symbol == SYM_RBRACKET)
-        getSymbol();
-      else
-        syntaxErrorSymbol(SYM_RBRACKET);
     }
 
     emitLeftShiftBy(2);
 
-    // array as parameter
     if (getParamFlag(entry)) {
-      // store in current temporary:  andress in parameter + array address + index << 2
       talloc();
       emitIFormat(OP_LW, getScope(entry), currentTemporary(), getAddress(entry));
       emitRFormat(OP_SPECIAL, currentTemporary(), previousTemporary(), currentTemporary(), FCT_ADDU);
